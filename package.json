@@ -1,0 +1,15 @@
+{
+  "name": "ao3-annotator",
+  "version": "0.1.0",
+  "description": "Private highlight + note extension for Archive of Our Own",
+  "private": true,
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "watch": "node esbuild.config.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.0",
+    "@types/chrome": "^0.0.270"
+  }
+}

@@ -1,0 +1,15 @@
+body {
+  width: 280px;
+  padding: 16px;
+  font-family: system-ui, sans-serif;
+}
+
+h1 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+#status {
+  font-size: 13px;
+  color: #666;
+}
