@@ -1,2 +1,12 @@
-/* Phase 1+: highlight span styles, note popover, and sidebar styles go here.
-   Keep selectors scoped so we never touch AO3's own element styling. */
+.ao3-annotator-highlight {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.ao3-annotator-highlight:hover {
+  filter: brightness(0.95);
+}
+
+#ao3-annotator-popover button:hover {
+  transform: scale(1.15);
+}
