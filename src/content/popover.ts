@@ -22,6 +22,7 @@ function basePopoverStyle(el: HTMLElement, left: number, top: number): void {
   el.style.border = "1px solid #ccc";
   el.style.borderRadius = "8px";
   el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+   el.style.boxSizing = "border-box";
 }
 
 /** Small grip bar at the top of a popover that lets the user drag it anywhere. */
@@ -203,7 +204,7 @@ export function showNotePopover(
   textarea.style.padding = "6px";
   textarea.style.border = "1px solid #ddd";
   textarea.style.borderRadius = "6px";
-  textarea.style.resize = "vertical";
+  textarea.style.resize = "none";
   textarea.style.marginBottom = "6px";
   textarea.addEventListener("click", (e) => e.stopPropagation());
   textarea.addEventListener("mousedown", (e) => e.stopPropagation());
