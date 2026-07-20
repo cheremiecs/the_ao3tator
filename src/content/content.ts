@@ -40,6 +40,22 @@ function handleSelection(workId: string, container: Element): void {
 
   if (!container.contains(range.commonAncestorContainer)) return;
 
+  // Reject selections that cross paragraph boundaries — wrapping these in a
+  // single highlight span corrupts the DOM. Proper multi-paragraph support
+  // is Phase 3 work.
+  const startParagraph = range.startContainer.nodeType === 3
+    ? range.startContainer.parentElement?.closest("p")
+    : (range.startContainer as HTMLElement).closest("p");
+  const endParagraph = range.endContainer.nodeType === 3
+    ? range.endContainer.parentElement?.closest("p")
+    : (range.endContainer as HTMLElement).closest("p");
+
+  if (!startParagraph || !endParagraph || startParagraph !== endParagraph) {
+    console.warn("[AO3 Annotator] Highlighting across paragraphs isn't supported yet.");
+    selection.removeAllRanges();
+    return;
+  }
+
   const rect = range.getBoundingClientRect();
   showColorPopover(rect.left, rect.bottom + 6, async (color) => {
     const rangeCopy = range.cloneRange();

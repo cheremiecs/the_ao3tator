@@ -6,6 +6,93 @@ const POPOVER_ID = "ao3-annotator-popover";
 let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 let escHandler: ((e: KeyboardEvent) => void) | null = null;
 
+function clampPosition(x: number, y: number, width: number, height: number) {
+  const clampedX = Math.min(x, window.innerWidth - width - 8);
+  const clampedY = Math.min(y, window.innerHeight - height - 8);
+  return { left: Math.max(8, clampedX), top: Math.max(8, clampedY) };
+}
+
+function basePopoverStyle(el: HTMLElement, left: number, top: number): void {
+  el.id = POPOVER_ID;
+  el.style.position = "fixed";
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+  el.style.zIndex = "999999";
+  el.style.background = "#fff";
+  el.style.border = "1px solid #ccc";
+  el.style.borderRadius = "8px";
+  el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+}
+
+/** Small grip bar at the top of a popover that lets the user drag it anywhere. */
+function createDragHandle(popover: HTMLElement): HTMLElement {
+  const handle = document.createElement("div");
+  handle.textContent = "⠿⠿⠿";
+  handle.style.textAlign = "center";
+  handle.style.fontSize = "10px";
+  handle.style.letterSpacing = "2px";
+  handle.style.color = "#aaa";
+  handle.style.cursor = "grab";
+  handle.style.userSelect = "none";
+  handle.style.padding = "2px 0 4px";
+  handle.style.marginBottom = "2px";
+  handle.style.borderBottom = "1px solid #eee";
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  handle.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = popover.offsetLeft;
+    startTop = popover.offsetTop;
+    handle.style.cursor = "grabbing";
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (!dragging) return;
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      popover.style.left = `${startLeft + dx}px`;
+      popover.style.top = `${startTop + dy}px`;
+    };
+
+    const onUp = () => {
+      dragging = false;
+      handle.style.cursor = "grab";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+
+  handle.addEventListener("click", (e) => e.stopPropagation());
+
+  return handle;
+}
+
+function attachDismissListeners(): void {
+  outsideClickHandler = () => removeColorPopover();
+  escHandler = (e: KeyboardEvent) => {
+    if (e.key === "Escape") removeColorPopover();
+  };
+  setTimeout(() => {
+    if (outsideClickHandler) {
+      document.addEventListener("click", outsideClickHandler, { once: true });
+    }
+    if (escHandler) {
+      document.addEventListener("keydown", escHandler, { once: true });
+    }
+  }, 0);
+}
+
 export function showColorPopover(
   x: number,
   y: number,
@@ -14,18 +101,17 @@ export function showColorPopover(
   removeColorPopover();
 
   const popover = document.createElement("div");
-  popover.id = POPOVER_ID;
-  popover.style.position = "fixed";
-  popover.style.left = `${x}px`;
-  popover.style.top = `${y}px`;
-  popover.style.zIndex = "999999";
-  popover.style.display = "flex";
-  popover.style.gap = "6px";
+  const { left, top } = clampPosition(x, y, 130, 50);
+  basePopoverStyle(popover, left, top);
   popover.style.padding = "6px 8px";
-  popover.style.background = "#fff";
-  popover.style.border = "1px solid #ccc";
-  popover.style.borderRadius = "8px";
-  popover.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+  popover.addEventListener("click", (e) => e.stopPropagation());
+  popover.addEventListener("mousedown", (e) => e.stopPropagation());
+
+  popover.appendChild(createDragHandle(popover));
+
+  const swatchRow = document.createElement("div");
+  swatchRow.style.display = "flex";
+  swatchRow.style.gap = "6px";
 
   (Object.keys(COLOR_HEX) as HighlightColor[]).forEach((color) => {
     const swatch = document.createElement("button");
@@ -45,24 +131,134 @@ export function showColorPopover(
       removeColorPopover();
     });
 
-    popover.appendChild(swatch);
+    swatchRow.appendChild(swatch);
   });
 
+  popover.appendChild(swatchRow);
   document.body.appendChild(popover);
+  attachDismissListeners();
+}
 
-  outsideClickHandler = () => removeColorPopover();
-  escHandler = (e: KeyboardEvent) => {
-    if (e.key === "Escape") removeColorPopover();
+export interface NotePopoverCallbacks {
+  onSave: (note: string) => void;
+  onDeleteNote: () => void;
+  onDeleteHighlight: () => void;
+  onColorChange: (color: HighlightColor) => void;
+}
+
+export function showNotePopover(
+  x: number,
+  y: number,
+  currentNote: string,
+  currentColor: HighlightColor,
+  callbacks: NotePopoverCallbacks
+): void {
+  removeColorPopover();
+
+  const popover = document.createElement("div");
+  const { left, top } = clampPosition(x, y, 220, 210);
+  basePopoverStyle(popover, left, top);
+  popover.style.padding = "8px 10px 10px";
+  popover.style.width = "220px";
+  popover.style.fontFamily = "system-ui, sans-serif";
+  popover.addEventListener("click", (e) => e.stopPropagation());
+  popover.addEventListener("mousedown", (e) => e.stopPropagation());
+
+  popover.appendChild(createDragHandle(popover));
+
+  const swatchRow = document.createElement("div");
+  swatchRow.style.display = "flex";
+  swatchRow.style.gap = "6px";
+  swatchRow.style.marginBottom = "6px";
+
+  (Object.keys(COLOR_HEX) as HighlightColor[]).forEach((color) => {
+    const swatch = document.createElement("button");
+    swatch.type = "button";
+    swatch.title = color;
+    swatch.style.width = "18px";
+    swatch.style.height = "18px";
+    swatch.style.borderRadius = "50%";
+    swatch.style.border =
+      color === currentColor ? "2px solid #333" : "1px solid rgba(0,0,0,0.15)";
+    swatch.style.background = COLOR_HEX[color];
+    swatch.style.cursor = "pointer";
+    swatch.style.padding = "0";
+
+    swatch.addEventListener("click", (e) => {
+      e.stopPropagation();
+      callbacks.onColorChange(color);
+      removeColorPopover();
+    });
+
+    swatchRow.appendChild(swatch);
+  });
+
+  const textarea = document.createElement("textarea");
+  textarea.value = currentNote;
+  textarea.placeholder = "Add a note...";
+  textarea.rows = 4;
+  textarea.style.width = "100%";
+  textarea.style.boxSizing = "border-box";
+  textarea.style.fontSize = "13px";
+  textarea.style.padding = "6px";
+  textarea.style.border = "1px solid #ddd";
+  textarea.style.borderRadius = "6px";
+  textarea.style.resize = "vertical";
+  textarea.style.marginBottom = "6px";
+  textarea.addEventListener("click", (e) => e.stopPropagation());
+  textarea.addEventListener("mousedown", (e) => e.stopPropagation());
+
+  const buttonRow = document.createElement("div");
+  buttonRow.style.display = "flex";
+  buttonRow.style.justifyContent = "space-between";
+  buttonRow.style.gap = "6px";
+
+  const makeButton = (label: string, danger = false) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.style.fontSize = "12px";
+    btn.style.padding = "5px 8px";
+    btn.style.border = "1px solid " + (danger ? "#e0a0a0" : "#ccc");
+    btn.style.borderRadius = "6px";
+    btn.style.background = danger ? "#fff5f5" : "#f5f5f5";
+    btn.style.color = danger ? "#b03030" : "#333";
+    btn.style.cursor = "pointer";
+    return btn;
   };
 
-  setTimeout(() => {
-    if (outsideClickHandler) {
-      document.addEventListener("click", outsideClickHandler, { once: true });
-    }
-    if (escHandler) {
-      document.addEventListener("keydown", escHandler, { once: true });
-    }
-  }, 0);
+  const saveBtn = makeButton("Save");
+  saveBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    callbacks.onSave(textarea.value.trim());
+    removeColorPopover();
+  });
+
+  const deleteNoteBtn = makeButton("Delete note");
+  deleteNoteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    callbacks.onDeleteNote();
+    removeColorPopover();
+  });
+
+  const deleteHighlightBtn = makeButton("Delete highlight", true);
+  deleteHighlightBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    callbacks.onDeleteHighlight();
+    removeColorPopover();
+  });
+
+  buttonRow.appendChild(deleteHighlightBtn);
+  buttonRow.appendChild(deleteNoteBtn);
+  buttonRow.appendChild(saveBtn);
+
+  popover.appendChild(swatchRow);
+  popover.appendChild(textarea);
+  popover.appendChild(buttonRow);
+
+  document.body.appendChild(popover);
+  attachDismissListeners();
+  textarea.focus();
 }
 
 export function removeColorPopover(): void {
