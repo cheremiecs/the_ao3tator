@@ -4,6 +4,7 @@ import {
   findTextRange,
   wrapRangeAsHighlight,
   unwrapHighlight,
+  getHighlightSpans,
   HIGHLIGHT_CLASS,
   COLOR_HEX
 } from "./highlight";
@@ -32,7 +33,7 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
       );
       continue;
     }
-    wrapRangeAsHighlight(range, annotation.id, annotation.color);
+    wrapRangeAsHighlight(range, annotation.id, annotation.color, container);
   }
 }
 
@@ -50,7 +51,7 @@ function handleSelection(workId: string, container: Element): void {
   showColorPopover(rect.left, rect.bottom + 6, async (color) => {
     const rangeCopy = range.cloneRange();
     const annotation = createAnnotation(selectedText, color);
-    wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color);
+    wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color, container);
 
     const existing = (await getWork(workId)) ?? createWorkShell(workId);
     existing.annotations.push(annotation);
@@ -62,7 +63,7 @@ function handleSelection(workId: string, container: Element): void {
   });
 }
 
-function handleHighlightClick(workId: string, span: HTMLElement): void {
+function handleHighlightClick(workId: string, span: HTMLElement, container: Element): void {
   const annotationId = span.dataset.annotationId;
   if (!annotationId) return;
 
@@ -82,11 +83,14 @@ function handleHighlightClick(workId: string, span: HTMLElement): void {
       },
       onDeleteHighlight: async () => {
         await deleteAnnotation(workId, annotationId);
-        unwrapHighlight(span);
+        unwrapHighlight(container, annotationId);
         console.log(`[AO3 Annotator] Deleted highlight ${annotationId}`);
       },
       onColorChange: async (color) => {
-        span.style.backgroundColor = COLOR_HEX[color];
+        const spans = getHighlightSpans(container, annotationId);
+        spans.forEach((s) => {
+          s.style.backgroundColor = COLOR_HEX[color];
+        });
         await updateAnnotation(workId, annotationId, { color });
         console.log(`[AO3 Annotator] Recolored highlight ${annotationId} to ${color}`);
       }
@@ -119,7 +123,7 @@ async function init(): Promise<void> {
 
     const highlightSpan = target.closest(`.${HIGHLIGHT_CLASS}`) as HTMLElement | null;
     if (highlightSpan && window.getSelection()?.isCollapsed) {
-      handleHighlightClick(workId, highlightSpan);
+      handleHighlightClick(workId, highlightSpan, container);
       return;
     }
 

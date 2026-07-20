@@ -9,16 +9,7 @@ export const COLOR_HEX: Record<HighlightColor, string> = {
   pink: "#ED93B1"
 };
 
-/**
- * Wraps a Range in a <span> highlight element.
- * Phase 1 note: this only handles ranges that don't cross block-level
- * elements cleanly. Multi-paragraph selections are out of scope for Phase 1.
- */
-export function wrapRangeAsHighlight(
-  range: Range,
-  id: string,
-  color: HighlightColor
-): HTMLSpanElement {
+function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLSpanElement {
   const span = document.createElement("span");
   span.className = HIGHLIGHT_CLASS;
   span.dataset.annotationId = id;
@@ -36,7 +27,73 @@ export function wrapRangeAsHighlight(
   return span;
 }
 
-export function unwrapHighlight(span: HTMLElement): void {
+function getContainingParagraph(node: Node): HTMLElement | null {
+  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  return el?.closest("p") ?? null;
+}
+
+function getParagraphsBetween(
+  container: Element,
+  startP: HTMLElement,
+  endP: HTMLElement
+): HTMLElement[] {
+  const allParagraphs = Array.from(container.querySelectorAll("p")) as HTMLElement[];
+  const startIndex = allParagraphs.indexOf(startP);
+  const endIndex = allParagraphs.indexOf(endP);
+  if (startIndex === -1 || endIndex === -1) return [];
+  const [lo, hi] = startIndex <= endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+  return allParagraphs.slice(lo, hi + 1);
+}
+
+/**
+ * Wraps a Range in one or more <span> highlight elements, all sharing the
+ * same annotation id. If the range stays within a single <p>, this produces
+ * one span (same as before). If it spans multiple <p> elements, it splits
+ * the range at paragraph boundaries and wraps each paragraph's portion in
+ * its own span — a single <span> can't legally wrap block-level content
+ * across multiple paragraphs, so this is the correct way to highlight
+ * across them instead of forcing one broken span.
+ *
+ * `container` is required to resolve cross-paragraph splits; without it
+ * (or if start/end aren't inside a <p>), falls back to a single-span wrap.
+ */
+export function wrapRangeAsHighlight(
+  range: Range,
+  id: string,
+  color: HighlightColor,
+  container?: Element
+): HTMLSpanElement[] {
+  const startP = getContainingParagraph(range.startContainer);
+  const endP = getContainingParagraph(range.endContainer);
+
+  if (!container || !startP || !endP || startP === endP) {
+    return [wrapSingleRange(range, id, color)];
+  }
+
+  const paragraphs = getParagraphsBetween(container, startP, endP);
+  const spans: HTMLSpanElement[] = [];
+
+  paragraphs.forEach((p) => {
+    const subRange = document.createRange();
+    if (p === startP) {
+      subRange.setStart(range.startContainer, range.startOffset);
+    } else {
+      subRange.setStart(p, 0);
+    }
+    if (p === endP) {
+      subRange.setEnd(range.endContainer, range.endOffset);
+    } else {
+      subRange.setEnd(p, p.childNodes.length);
+    }
+
+    if (subRange.collapsed) return;
+    spans.push(wrapSingleRange(subRange, id, color));
+  });
+
+  return spans;
+}
+
+function unwrapSingleSpan(span: HTMLElement): void {
   const parent = span.parentNode;
   if (!parent) return;
 
@@ -45,6 +102,22 @@ export function unwrapHighlight(span: HTMLElement): void {
   }
   parent.removeChild(span);
   parent.normalize();
+}
+
+/** Removes every span belonging to this annotation id (may be more than one
+ * for a cross-paragraph highlight), not just a single passed-in span. */
+export function unwrapHighlight(container: Element, id: string): void {
+  const spans = getHighlightSpans(container, id);
+  spans.forEach(unwrapSingleSpan);
+}
+
+/** Returns every span belonging to an annotation id, in document order. */
+export function getHighlightSpans(container: Element, id: string): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      `.${HIGHLIGHT_CLASS}[data-annotation-id="${id}"]`
+    )
+  );
 }
 
 /**
