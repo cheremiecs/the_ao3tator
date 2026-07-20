@@ -36,6 +36,17 @@ export function wrapRangeAsHighlight(
   return span;
 }
 
+export function unwrapHighlight(span: HTMLElement): void {
+  const parent = span.parentNode;
+  if (!parent) return;
+
+  while (span.firstChild) {
+    parent.insertBefore(span.firstChild, span);
+  }
+  parent.removeChild(span);
+  parent.normalize();
+}
+
 /**
  * Finds the first occurrence of `text` inside `container` that isn't already
  * highlighted, and returns a Range spanning it.
@@ -44,14 +55,7 @@ export function wrapRangeAsHighlight(
  * prefix/suffix-anchored fuzzy matching.
  */
 export function findTextRange(container: Element, text: string): Range | null {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if ((node.parentElement as HTMLElement | null)?.closest(`.${HIGHLIGHT_CLASS}`)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    }
-  });
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
 
   const nodes: Text[] = [];
   let combined = "";

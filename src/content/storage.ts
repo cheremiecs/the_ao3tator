@@ -39,3 +39,26 @@ export async function getAllWorks(): Promise<AnnotatedWork[]> {
   const all = await chrome.storage.local.get(null);
   return Object.values(all) as AnnotatedWork[];
 }
+
+export async function updateAnnotation(
+  workId: string,
+  annotationId: string,
+  changes: Partial<Pick<Annotation, "note" | "color">>
+): Promise<void> {
+  const work = await getWork(workId);
+  if (!work) return;
+
+  const annotation = work.annotations.find((a) => a.id === annotationId);
+  if (!annotation) return;
+
+  Object.assign(annotation, changes);
+  await saveWork(work);
+}
+
+export async function deleteAnnotation(workId: string, annotationId: string): Promise<void> {
+  const work = await getWork(workId);
+  if (!work) return;
+
+  work.annotations = work.annotations.filter((a) => a.id !== annotationId);
+  await saveWork(work);
+}

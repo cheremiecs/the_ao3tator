@@ -1,7 +1,13 @@
-import { getWork, saveWork } from "./storage";
+import { getWork, saveWork, updateAnnotation, deleteAnnotation } from "./storage";
 import { createAnnotation, createWorkShell } from "./annotation";
-import { findTextRange, wrapRangeAsHighlight } from "./highlight";
-import { showColorPopover, removeColorPopover } from "./popover";
+import {
+  findTextRange,
+  wrapRangeAsHighlight,
+  unwrapHighlight,
+  HIGHLIGHT_CLASS,
+  COLOR_HEX
+} from "./highlight";
+import { showColorPopover, showNotePopover, removeColorPopover } from "./popover";
 
 const STORY_CONTAINER_SELECTOR = "#workskin";
 
@@ -40,22 +46,6 @@ function handleSelection(workId: string, container: Element): void {
 
   if (!container.contains(range.commonAncestorContainer)) return;
 
-  // Reject selections that cross paragraph boundaries — wrapping these in a
-  // single highlight span corrupts the DOM. Proper multi-paragraph support
-  // is Phase 3 work.
-  const startParagraph = range.startContainer.nodeType === 3
-    ? range.startContainer.parentElement?.closest("p")
-    : (range.startContainer as HTMLElement).closest("p");
-  const endParagraph = range.endContainer.nodeType === 3
-    ? range.endContainer.parentElement?.closest("p")
-    : (range.endContainer as HTMLElement).closest("p");
-
-  if (!startParagraph || !endParagraph || startParagraph !== endParagraph) {
-    console.warn("[AO3 Annotator] Highlighting across paragraphs isn't supported yet.");
-    selection.removeAllRanges();
-    return;
-  }
-
   const rect = range.getBoundingClientRect();
   showColorPopover(rect.left, rect.bottom + 6, async (color) => {
     const rangeCopy = range.cloneRange();
@@ -69,6 +59,38 @@ function handleSelection(workId: string, container: Element): void {
 
     selection.removeAllRanges();
     console.log(`[AO3 Annotator] Saved highlight ${annotation.id}`);
+  });
+}
+
+function handleHighlightClick(workId: string, span: HTMLElement): void {
+  const annotationId = span.dataset.annotationId;
+  if (!annotationId) return;
+
+  getWork(workId).then((work) => {
+    const annotation = work?.annotations.find((a) => a.id === annotationId);
+    if (!annotation) return;
+
+    const rect = span.getBoundingClientRect();
+    showNotePopover(rect.left, rect.bottom + 6, annotation.note, annotation.color, {
+      onSave: async (note) => {
+        await updateAnnotation(workId, annotationId, { note });
+        console.log(`[AO3 Annotator] Updated note on ${annotationId}`);
+      },
+      onDeleteNote: async () => {
+        await updateAnnotation(workId, annotationId, { note: "" });
+        console.log(`[AO3 Annotator] Deleted note on ${annotationId}`);
+      },
+      onDeleteHighlight: async () => {
+        await deleteAnnotation(workId, annotationId);
+        unwrapHighlight(span);
+        console.log(`[AO3 Annotator] Deleted highlight ${annotationId}`);
+      },
+      onColorChange: async (color) => {
+        span.style.backgroundColor = COLOR_HEX[color];
+        await updateAnnotation(workId, annotationId, { color });
+        console.log(`[AO3 Annotator] Recolored highlight ${annotationId} to ${color}`);
+      }
+    });
   });
 }
 
@@ -86,15 +108,21 @@ async function init(): Promise<void> {
 
   await restoreHighlights(workId, container);
 
-  // Close any leftover popover the instant a new selection starts,
-  // so it never blocks the mousedown that begins a new drag-select.
   document.addEventListener("mousedown", (e) => {
     if ((e.target as HTMLElement)?.closest("#ao3-annotator-popover")) return;
     removeColorPopover();
   });
 
   document.addEventListener("mouseup", (e) => {
-    if ((e.target as HTMLElement)?.closest("#ao3-annotator-popover")) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("#ao3-annotator-popover")) return;
+
+    const highlightSpan = target.closest(`.${HIGHLIGHT_CLASS}`) as HTMLElement | null;
+    if (highlightSpan && window.getSelection()?.isCollapsed) {
+      handleHighlightClick(workId, highlightSpan);
+      return;
+    }
+
     handleSelection(workId, container);
   });
 }
