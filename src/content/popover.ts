@@ -22,7 +22,7 @@ function basePopoverStyle(el: HTMLElement, left: number, top: number): void {
   el.style.border = "1px solid #ccc";
   el.style.borderRadius = "8px";
   el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
-   el.style.boxSizing = "border-box";
+  el.style.boxSizing = "border-box";
 }
 
 /** Small grip bar at the top of a popover that lets the user drag it anywhere. */
@@ -147,6 +147,9 @@ export interface NotePopoverCallbacks {
   onColorChange: (color: HighlightColor) => void;
 }
 
+// Widened so the three-button row fits on one line without overflowing.
+const NOTE_POPOVER_WIDTH = 300;
+
 export function showNotePopover(
   x: number,
   y: number,
@@ -157,10 +160,10 @@ export function showNotePopover(
   removeColorPopover();
 
   const popover = document.createElement("div");
-  const { left, top } = clampPosition(x, y, 220, 210);
+  const { left, top } = clampPosition(x, y, NOTE_POPOVER_WIDTH, 210);
   basePopoverStyle(popover, left, top);
   popover.style.padding = "8px 10px 10px";
-  popover.style.width = "220px";
+  popover.style.width = `${NOTE_POPOVER_WIDTH}px`;
   popover.style.fontFamily = "system-ui, sans-serif";
   popover.addEventListener("click", (e) => e.stopPropagation());
   popover.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -211,20 +214,31 @@ export function showNotePopover(
 
   const buttonRow = document.createElement("div");
   buttonRow.style.display = "flex";
+  buttonRow.style.flexWrap = "nowrap";
   buttonRow.style.justifyContent = "space-between";
   buttonRow.style.gap = "6px";
+  buttonRow.style.width = "100%";
+  buttonRow.style.boxSizing = "border-box";
 
   const makeButton = (label: string, danger = false) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = label;
-    btn.style.fontSize = "12px";
-    btn.style.padding = "5px 8px";
+    btn.style.fontSize = "11px";
+    btn.style.padding = "8px 12px";
+    btn.style.lineHeight = "1.2";              // NEW — stop inheriting AO3's tall line-height
     btn.style.border = "1px solid " + (danger ? "#e0a0a0" : "#ccc");
     btn.style.borderRadius = "6px";
     btn.style.background = danger ? "#fff5f5" : "#f5f5f5";
     btn.style.color = danger ? "#b03030" : "#333";
     btn.style.cursor = "pointer";
+    btn.style.whiteSpace = "nowrap";
+    btn.style.flex = "0 1 auto";
+    btn.style.minWidth = "0";
+    btn.style.boxSizing = "border-box";
+    btn.style.display = "inline-flex";         // NEW — center label properly
+    btn.style.alignItems = "center";           // NEW
+    btn.style.justifyContent = "center";       // NEW
     return btn;
   };
 
