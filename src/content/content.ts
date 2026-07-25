@@ -10,7 +10,7 @@ import {
 } from "./highlight";
 import { showColorPopover, showNotePopover, removeColorPopover } from "./popover";
 
-const STORY_CONTAINER_SELECTOR = "#workskin";
+const STORY_CONTAINER_SELECTOR = "#main";
 
 function getWorkId(): string | null {
   const match = window.location.pathname.match(/\/works\/(\d+)/);

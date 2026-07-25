@@ -214,7 +214,7 @@ export function showNotePopover(
 
   const buttonRow = document.createElement("div");
   buttonRow.style.display = "flex";
-  buttonRow.style.flexWrap = "nowrap";
+  buttonRow.style.flexWrap = "wrap"; //wrapping to avoid overflow on smaller screens
   buttonRow.style.justifyContent = "space-between";
   buttonRow.style.gap = "6px";
   buttonRow.style.width = "100%";
@@ -233,7 +233,7 @@ export function showNotePopover(
     btn.style.color = danger ? "#b03030" : "#333";
     btn.style.cursor = "pointer";
     btn.style.whiteSpace = "nowrap";
-    btn.style.flex = "0 1 auto";
+    btn.style.flex = "0 0 auto";
     btn.style.minWidth = "0";
     btn.style.boxSizing = "border-box";
     btn.style.display = "inline-flex";         // NEW — center label properly

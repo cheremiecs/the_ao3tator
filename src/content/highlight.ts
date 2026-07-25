@@ -9,7 +9,31 @@ export const COLOR_HEX: Record<HighlightColor, string> = {
   pink: "#ED93B1"
 };
 
+// Elements treated as "block" boundaries for splitting cross-block
+// selections — covers story paragraphs as well as the title, byline,
+// summary, and notes sections, which don't use <p> tags.
+const BLOCK_SELECTOR = "p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt";
+
 function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLSpanElement {
+  // Split text nodes exactly at the range's start/end so the boundaries
+  // land on clean node edges. This makes surroundContents() succeed
+  // reliably instead of falling back to extractContents(), which could
+  // scoop up more of the DOM than intended if the range boundaries didn't
+  // align with existing nodes.
+  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    const startNode = range.startContainer as Text;
+    if (range.startOffset > 0 && range.startOffset < startNode.length) {
+      const newNode = startNode.splitText(range.startOffset);
+      range.setStart(newNode, 0);
+    }
+  }
+  if (range.endContainer.nodeType === Node.TEXT_NODE) {
+    const endNode = range.endContainer as Text;
+    if (range.endOffset > 0 && range.endOffset < endNode.length) {
+      endNode.splitText(range.endOffset);
+    }
+  }
+
   const span = document.createElement("span");
   span.className = HIGHLIGHT_CLASS;
   span.dataset.annotationId = id;
@@ -18,10 +42,9 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
 
   try {
     range.surroundContents(span);
-  } catch {
-    const fragment = range.extractContents();
-    span.appendChild(fragment);
-    range.insertNode(span);
+  } catch (err) {
+    console.error("[AO3 Annotator] surroundContents failed even after split:", err);
+    return span;
   }
 
   return span;
@@ -29,7 +52,23 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
 
 function getContainingParagraph(node: Node): HTMLElement | null {
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-  return el?.closest("p") ?? null;
+  return el?.closest(BLOCK_SELECTOR) ?? null;
+}
+
+/**
+ * Returns every block-level element matching BLOCK_SELECTOR, but only the
+ * "leaf" ones — if a <blockquote> contains a <p>, only the <p> is kept.
+ * Without this, an element like <blockquote><p>text</p></blockquote> would
+ * be counted twice (once as the blockquote, once as the p), causing the
+ * splitting logic to wrap the same text twice — once correctly, and once
+ * as an invalid <span> wrapped around the whole <p> — which silently
+ * breaks the highlight color on the second wrap.
+ */
+function getLeafBlocks(container: Element): HTMLElement[] {
+  const candidates = Array.from(container.querySelectorAll<HTMLElement>(BLOCK_SELECTOR));
+  return candidates.filter(
+    (el) => !candidates.some((other) => other !== el && el.contains(other))
+  );
 }
 
 function getParagraphsBetween(
@@ -37,7 +76,7 @@ function getParagraphsBetween(
   startP: HTMLElement,
   endP: HTMLElement
 ): HTMLElement[] {
-  const allParagraphs = Array.from(container.querySelectorAll("p")) as HTMLElement[];
+  const allParagraphs = getLeafBlocks(container);
   const startIndex = allParagraphs.indexOf(startP);
   const endIndex = allParagraphs.indexOf(endP);
   if (startIndex === -1 || endIndex === -1) return [];
@@ -47,15 +86,16 @@ function getParagraphsBetween(
 
 /**
  * Wraps a Range in one or more <span> highlight elements, all sharing the
- * same annotation id. If the range stays within a single <p>, this produces
- * one span (same as before). If it spans multiple <p> elements, it splits
- * the range at paragraph boundaries and wraps each paragraph's portion in
- * its own span — a single <span> can't legally wrap block-level content
- * across multiple paragraphs, so this is the correct way to highlight
- * across them instead of forcing one broken span.
+ * same annotation id. If the range stays within a single block element
+ * (paragraph, heading, blockquote, etc.), this produces one span. If it
+ * spans multiple block elements, it splits the range at block boundaries
+ * and wraps each block's portion in its own span — a single <span> can't
+ * legally wrap block-level content across multiple blocks, so this is the
+ * correct way to highlight across them instead of forcing one broken span.
  *
- * `container` is required to resolve cross-paragraph splits; without it
- * (or if start/end aren't inside a <p>), falls back to a single-span wrap.
+ * `container` is required to resolve cross-block splits; without it
+ * (or if start/end aren't inside a recognized block element), falls back
+ * to a single-span wrap.
  */
 export function wrapRangeAsHighlight(
   range: Range,
@@ -105,7 +145,7 @@ function unwrapSingleSpan(span: HTMLElement): void {
 }
 
 /** Removes every span belonging to this annotation id (may be more than one
- * for a cross-paragraph highlight), not just a single passed-in span. */
+ * for a cross-block highlight), not just a single passed-in span. */
 export function unwrapHighlight(container: Element, id: string): void {
   const spans = getHighlightSpans(container, id);
   spans.forEach(unwrapSingleSpan);
