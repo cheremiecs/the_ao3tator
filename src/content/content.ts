@@ -33,6 +33,18 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
       );
       continue;
     }
+    // DIAGNOSTIC — compare what we expected to find vs what findTextRange
+    // actually returned, to catch any mismatch before wrapping happens.
+    const foundText = range.toString();
+    if (foundText !== annotation.selectedText) {
+      console.error(
+        `[AO3 Annotator] MISMATCH for ${annotation.id}:`,
+        "\n  expected:", JSON.stringify(annotation.selectedText),
+        "\n  found:   ", JSON.stringify(foundText)
+      );
+    } else {
+      console.log(`[AO3 Annotator] OK ${annotation.id}:`, JSON.stringify(foundText));
+    }
     wrapRangeAsHighlight(range, annotation.id, annotation.color, container);
   }
 }
