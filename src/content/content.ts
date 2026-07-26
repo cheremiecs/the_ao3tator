@@ -59,11 +59,14 @@ function handleSelection(workId: string, container: Element): void {
 
   if (!container.contains(range.commonAncestorContainer)) return;
 
-  const rect = range.getBoundingClientRect();
+const rect = range.getBoundingClientRect();
   showColorPopover(rect.left, rect.bottom + 6, async (color) => {
     const rangeCopy = range.cloneRange();
+    console.log(`[AO3 Annotator] About to save:`, JSON.stringify(selectedText));
     const annotation = createAnnotation(selectedText, color);
-    wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color, container);
+    const spans = wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color, container);
+    const actuallyWrapped = spans.map((s) => s.textContent).join("");
+    console.log(`[AO3 Annotator] Actually wrapped:`, JSON.stringify(actuallyWrapped));
 
     const existing = (await getWork(workId)) ?? createWorkShell(workId);
     existing.annotations.push(annotation);

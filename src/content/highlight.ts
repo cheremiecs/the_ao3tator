@@ -18,15 +18,11 @@ const BLOCK_SELECTOR = "p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt";
  * Wraps every individual text node touched by `range` in its own <span>,
  * rather than trying to wrap the whole range in one <span> via
  * surroundContents(). A single, fully-contained text node can always be
- * wrapped safely — surroundContents() only fails when a node (element or
- * text) is *partially* contained, which can't happen once we've split text
- * nodes at the boundaries and are wrapping one text node at a time. This
- * also correctly handles ranges that pass through inline elements (links,
- * italics, hidden markup, etc.) without needing to guess what those are.
+ * wrapped safely — surroundContents() only fails when a node is *partially*
+ * contained, which can't happen once we've split text nodes at the
+ * boundaries and are wrapping one text node at a time.
  */
 function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLSpanElement[] {
-  // Split text nodes exactly at the range's start/end so the boundaries
-  // land on clean node edges instead of mid-text.
   if (range.startContainer.nodeType === Node.TEXT_NODE) {
     const startNode = range.startContainer as Text;
     if (range.startOffset > 0 && range.startOffset < startNode.length) {
@@ -41,8 +37,12 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
     }
   }
 
-  // Collect every text node that falls within the now boundary-aligned range.
-  const root = range.commonAncestorContainer;
+  // If the whole selection sits inside one text node, commonAncestorContainer
+  // IS that text node — but a TreeWalker rooted at a Text node has no
+  // children to walk. Use the parent element instead whenever the root
+  // itself is a text node.
+  const rawRoot = range.commonAncestorContainer;
+  const root = rawRoot.nodeType === Node.TEXT_NODE ? rawRoot.parentElement! : rawRoot;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
   let node: Node | null;
@@ -54,7 +54,7 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
 
   const spans: HTMLSpanElement[] = [];
   textNodes.forEach((textNode) => {
-    if (!textNode.data) return; // skip empty nodes left over from splitting
+    if (!textNode.data) return;
     const nodeRange = document.createRange();
     nodeRange.selectNode(textNode);
 
@@ -83,9 +83,6 @@ function getContainingParagraph(node: Node): HTMLElement | null {
 /**
  * Returns every block-level element matching BLOCK_SELECTOR, but only the
  * "leaf" ones — if a <blockquote> contains a <p>, only the <p> is kept.
- * Without this, an element like <blockquote><p>text</p></blockquote> would
- * be counted twice, causing the splitting logic to attempt to wrap the
- * same text twice.
  */
 function getLeafBlocks(container: Element): HTMLElement[] {
   const candidates = Array.from(container.querySelectorAll<HTMLElement>(BLOCK_SELECTOR));
@@ -107,18 +104,6 @@ function getParagraphsBetween(
   return allParagraphs.slice(lo, hi + 1);
 }
 
-/**
- * Wraps a Range in one or more <span> highlight elements, all sharing the
- * same annotation id. Handles selections within a single block, selections
- * crossing multiple blocks (paragraphs, headings, etc.), and selections
- * that pass through inline elements — in all cases by wrapping each
- * intersected text node individually rather than trying to wrap a whole
- * range in one span.
- *
- * `container` is required to resolve cross-block splits; without it (or if
- * start/end aren't inside a recognized block element), falls back to
- * treating the whole range as a single block.
- */
 export function wrapRangeAsHighlight(
   range: Range,
   id: string,
@@ -166,14 +151,11 @@ function unwrapSingleSpan(span: HTMLElement): void {
   parent.normalize();
 }
 
-/** Removes every span belonging to this annotation id (there may now be
- * several per highlight — one per text node it touches). */
 export function unwrapHighlight(container: Element, id: string): void {
   const spans = getHighlightSpans(container, id);
   spans.forEach(unwrapSingleSpan);
 }
 
-/** Returns every span belonging to an annotation id, in document order. */
 export function getHighlightSpans(container: Element, id: string): HTMLElement[] {
   return Array.from(
     container.querySelectorAll<HTMLElement>(
@@ -183,11 +165,11 @@ export function getHighlightSpans(container: Element, id: string): HTMLElement[]
 }
 
 /**
- * Finds the first occurrence of `text` inside `container` that isn't already
- * highlighted, and returns a Range spanning it.
- *
- * Phase 1: exact substring match only. Phase 3 will replace this with
- * prefix/suffix-anchored fuzzy matching.
+ * Finds the first occurrence of `text` inside `container` and returns a
+ * Range spanning it. Text nodes are concatenated with no separator between
+ * them, so a match can begin or end exactly at a paragraph boundary —
+ * locateStart/locateEnd below handle that boundary case so the range gets
+ * attributed to the correct paragraph on each side.
  */
 export function findTextRange(container: Element, text: string): Range | null {
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -203,8 +185,8 @@ export function findTextRange(container: Element, text: string): Range | null {
   const index = combined.indexOf(text);
   if (index === -1) return null;
 
-  const start = locate(nodes, index);
-  const end = locate(nodes, index + text.length);
+  const start = locateStart(nodes, index);
+  const end = locateEnd(nodes, index + text.length);
   if (!start || !end) return null;
 
   const range = document.createRange();
@@ -213,7 +195,38 @@ export function findTextRange(container: Element, text: string): Range | null {
   return range;
 }
 
-function locate(nodes: Text[], globalOffset: number): { node: Text; offset: number } | null {
+/**
+ * Resolves a start offset. When the offset falls exactly at the boundary
+ * between two text nodes (i.e. exactly at the end of one node), prefers the
+ * START of the NEXT node rather than the end of the current one — same
+ * point in the document, but correctly attributes the match to the
+ * paragraph the selected text actually begins in, not the paragraph that
+ * happens to end at that seam.
+ */
+function locateStart(nodes: Text[], globalOffset: number): { node: Text; offset: number } | null {
+  let remaining = globalOffset;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (remaining < n.data.length) {
+      return { node: n, offset: remaining };
+    }
+    if (remaining === n.data.length) {
+      if (i + 1 < nodes.length) {
+        return { node: nodes[i + 1], offset: 0 };
+      }
+      return { node: n, offset: remaining };
+    }
+    remaining -= n.data.length;
+  }
+  return null;
+}
+
+/**
+ * Resolves an end offset. Stays at the end of the current node on an exact
+ * boundary — the last matched character is the last character of that
+ * node, so it correctly belongs to that node's paragraph.
+ */
+function locateEnd(nodes: Text[], globalOffset: number): { node: Text; offset: number } | null {
   let remaining = globalOffset;
   for (const n of nodes) {
     if (remaining <= n.data.length) {
