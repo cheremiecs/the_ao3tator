@@ -3,7 +3,7 @@
   "name": "AO3 Annotator",
   "version": "0.1.0",
   "description": "Privately highlight and annotate fanfiction on Archive of Our Own. Everything stays on your device.",
-  "permissions": ["storage", "unlimitedStorage"],
+  "permissions": ["storage", "unlimitedStorage", "tabs"],
   "host_permissions": ["https://archiveofourown.org/*"],
   "action": {
     "default_popup": "src/popup/popup.html",
@@ -22,4 +22,4 @@
     "48": "src/assets/icon48.png",
     "128": "src/assets/icon128.png"
   }
-}
+} 

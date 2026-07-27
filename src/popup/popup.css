@@ -6,10 +6,79 @@ body {
 
 h1 {
   font-size: 15px;
-  margin: 0 0 8px;
+  margin: 0 0 12px;
 }
 
-#status {
+#work-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.work-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #f7f7f7;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.work-item:hover {
+  background: #eee;
+}
+
+.work-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-author {
+  font-size: 12px;
+  color: #555;
+  margin: 0 0 4px;
+}
+
+.work-last-opened {
+  font-size: 11px;
+  color: #888;
+  margin: 0;
+}
+
+.empty-state {
   font-size: 13px;
   color: #666;
+} 
+
+.work-item-wrapper {
+  position: relative;
+}
+
+.work-item-wrapper .work-item {
+  padding-right: 60px; /* room for the delete button */
+}
+
+.work-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid #e0a0a0;
+  border-radius: 6px;
+  background: #fff5f5;
+  color: #b03030;
+  cursor: pointer;
+}
+
+.work-delete-btn:hover {
+  background: #ffe5e5;
 }

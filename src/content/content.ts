@@ -22,6 +22,11 @@ function getWorkId(): string | null {
   return match ? match[1] : null;
 }
 
+function getCurrentChapterId(): string | null {
+  const match = window.location.pathname.match(/\/chapters\/(\d+)/);
+  return match ? match[1] : null;
+}
+
 function getStoryContainer(): Element | null {
   return document.querySelector(STORY_CONTAINER_SELECTOR);
 }
@@ -30,15 +35,29 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
   const work = await getWork(workId);
   if (!work) return;
 
+  const currentChapterId = getCurrentChapterId();
   let missingCount = 0;
 
   for (const annotation of work.annotations) {
+    // Skip annotations that belong to a different chapter than the one
+    // currently being viewed. Annotations with no stored chapterId (saved
+    // before this field existed) are attempted regardless, but a failure
+    // to find them isn't counted toward the "fic was edited" banner, since
+    // we can't tell whether that's a real edit or just a different chapter.
+    const belongsToOtherChapter =
+      annotation.chapterId !== null &&
+      currentChapterId !== null &&
+      annotation.chapterId !== currentChapterId;
+    if (belongsToOtherChapter) continue;
+
     const range = findTextRange(container, annotation.selectedText);
     if (!range) {
       console.warn(
         `[AO3 Annotator] Could not restore highlight ${annotation.id} — text not found.`
       );
-      missingCount++;
+      if (annotation.chapterId !== null) {
+        missingCount++;
+      }
       continue;
     }
     // DIAGNOSTIC — compare what we expected to find vs what findTextRange
@@ -136,6 +155,12 @@ async function init(): Promise<void> {
   }
 
   console.log(`[AO3 Annotator] Loaded on work ${workId}`);
+
+  const existingWork = await getWork(workId);
+  if (existingWork) {
+    existingWork.lastOpened = new Date().toISOString();
+    await saveWork(existingWork);
+  }
 
   await restoreHighlights(workId, container);
 

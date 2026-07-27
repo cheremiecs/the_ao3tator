@@ -9,6 +9,11 @@ export function getWorkMetadata(): { title: string; author: string } {
   return { title, author };
 }
 
+function getCurrentChapterId(): string | null {
+  const match = window.location.pathname.match(/\/chapters\/(\d+)/);
+  return match ? match[1] : null;
+}
+
 export function createAnnotation(
   selectedText: string,
   color: HighlightColor
@@ -16,6 +21,7 @@ export function createAnnotation(
   return {
     id: crypto.randomUUID(),
     chapter: 1,
+    chapterId: getCurrentChapterId(),
     selectedText,
     note: "",
     color

@@ -7,6 +7,7 @@ export type HighlightColor = "yellow" | "blue" | "green" | "pink";
 export interface Annotation {
   id: string;
   chapter: number;
+  chapterId: string | null; // AO3's chapter ID from the URL; null for older annotations saved before this existed
   selectedText: string;
   contextPrefix?: string; // added in Phase 3
   contextSuffix?: string; // added in Phase 3
@@ -33,6 +34,10 @@ export async function getWork(workId: string): Promise<AnnotatedWork | null> {
 
 export async function saveWork(work: AnnotatedWork): Promise<void> {
   await chrome.storage.local.set({ [storageKey(work.workId)]: work });
+}
+
+export async function deleteWork(workId: string): Promise<void> {
+  await chrome.storage.local.remove(storageKey(workId));
 }
 
 export async function getAllWorks(): Promise<AnnotatedWork[]> {
