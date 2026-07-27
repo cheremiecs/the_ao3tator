@@ -226,7 +226,7 @@ export function showNotePopover(
     btn.textContent = label;
     btn.style.fontSize = "11px";
     btn.style.padding = "8px 12px";
-    btn.style.lineHeight = "1.2";              // NEW — stop inheriting AO3's tall line-height
+    btn.style.lineHeight = "1.2";
     btn.style.border = "1px solid " + (danger ? "#e0a0a0" : "#ccc");
     btn.style.borderRadius = "6px";
     btn.style.background = danger ? "#fff5f5" : "#f5f5f5";
@@ -236,9 +236,9 @@ export function showNotePopover(
     btn.style.flex = "0 0 auto";
     btn.style.minWidth = "0";
     btn.style.boxSizing = "border-box";
-    btn.style.display = "inline-flex";         // NEW — center label properly
-    btn.style.alignItems = "center";           // NEW
-    btn.style.justifyContent = "center";       // NEW
+    btn.style.display = "inline-flex";
+    btn.style.alignItems = "center";
+    btn.style.justifyContent = "center";
     return btn;
   };
 
@@ -287,4 +287,69 @@ export function removeColorPopover(): void {
     document.removeEventListener("keydown", escHandler);
     escHandler = null;
   }
+}
+
+// ---- Missing-highlights banner ----
+
+const BANNER_ID = "ao3-annotator-missing-banner";
+
+/**
+ * Shows a small dismissible banner at the top of the page when one or more
+ * saved highlights couldn't be relocated on this page load (their exact
+ * stored text is no longer found — likely because the author edited the
+ * fic). This does not attempt to guess where the highlight went; it just
+ * informs the reader plainly. Shown at most once per page load.
+ */
+export function showMissingHighlightsBanner(count: number): void {
+  if (document.getElementById(BANNER_ID)) return; // already shown this load
+
+  const banner = document.createElement("div");
+  banner.id = BANNER_ID;
+  banner.style.position = "fixed";
+  banner.style.top = "0";
+  banner.style.left = "0";
+  banner.style.right = "0";
+  banner.style.zIndex = "999998";
+  banner.style.background = "#fff8e1";
+  banner.style.borderBottom = "1px solid #e0c878";
+  banner.style.color = "#5c4a1a";
+  banner.style.fontFamily = "system-ui, sans-serif";
+  banner.style.fontSize = "13px";
+  banner.style.padding = "8px 16px";
+  banner.style.display = "flex";
+  banner.style.alignItems = "center";
+  banner.style.justifyContent = "center";
+  banner.style.gap = "12px";
+  banner.style.boxShadow = "0 1px 4px rgba(0,0,0,0.1)";
+
+  const text = document.createElement("span");
+  text.textContent =
+    count === 1
+      ? "1 of your highlights couldn't be found — this fic may have been updated since you last read it."
+      : `${count} of your highlights couldn't be found — this fic may have been updated since you last read it.`;
+
+  // Auto-dismiss after 5 seconds; cleared if the user dismisses manually first.
+  const autoDismissTimer = window.setTimeout(() => {
+    banner.remove();
+  }, 5000);
+
+  const dismissBtn = document.createElement("button");
+  dismissBtn.type = "button";
+  dismissBtn.textContent = "Dismiss";
+  dismissBtn.style.fontSize = "12px";
+  dismissBtn.style.padding = "4px 10px";
+  dismissBtn.style.border = "1px solid #c9ac5a";
+  dismissBtn.style.borderRadius = "6px";
+  dismissBtn.style.background = "#fff";
+  dismissBtn.style.color = "#5c4a1a";
+  dismissBtn.style.cursor = "pointer";
+  dismissBtn.style.whiteSpace = "nowrap";
+  dismissBtn.addEventListener("click", () => {
+    clearTimeout(autoDismissTimer);
+    banner.remove();
+  });
+
+  banner.appendChild(text);
+  banner.appendChild(dismissBtn);
+  document.body.appendChild(banner);
 }

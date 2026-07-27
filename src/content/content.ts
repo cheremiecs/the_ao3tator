@@ -8,7 +8,12 @@ import {
   HIGHLIGHT_CLASS,
   COLOR_HEX
 } from "./highlight";
-import { showColorPopover, showNotePopover, removeColorPopover } from "./popover";
+import {
+  showColorPopover,
+  showNotePopover,
+  removeColorPopover,
+  showMissingHighlightsBanner
+} from "./popover";
 
 const STORY_CONTAINER_SELECTOR = "#main";
 
@@ -25,12 +30,15 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
   const work = await getWork(workId);
   if (!work) return;
 
+  let missingCount = 0;
+
   for (const annotation of work.annotations) {
     const range = findTextRange(container, annotation.selectedText);
     if (!range) {
       console.warn(
         `[AO3 Annotator] Could not restore highlight ${annotation.id} — text not found.`
       );
+      missingCount++;
       continue;
     }
     // DIAGNOSTIC — compare what we expected to find vs what findTextRange
@@ -47,6 +55,10 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
     }
     wrapRangeAsHighlight(range, annotation.id, annotation.color, container);
   }
+
+  if (missingCount > 0) {
+    showMissingHighlightsBanner(missingCount);
+  }
 }
 
 function handleSelection(workId: string, container: Element): void {
@@ -59,7 +71,7 @@ function handleSelection(workId: string, container: Element): void {
 
   if (!container.contains(range.commonAncestorContainer)) return;
 
-const rect = range.getBoundingClientRect();
+  const rect = range.getBoundingClientRect();
   showColorPopover(rect.left, rect.bottom + 6, async (color) => {
     const rangeCopy = range.cloneRange();
     console.log(`[AO3 Annotator] About to save:`, JSON.stringify(selectedText));
