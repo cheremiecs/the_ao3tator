@@ -1,3 +1,4 @@
+```markdown
 # AO3 Annotator
 
 ## Project Overview
@@ -20,24 +21,27 @@ library of annotated works — without AO3 ever knowing or being modified.
 ## Design Principles
 
 - No user accounts, ever.
-- Local-first storage only (`chrome.storage.local`, later `unlimitedStorage`).
+- Local-first storage only (`chrome.storage.local`, `unlimitedStorage` — already enabled).
 - Never interfere with AO3's normal functionality, layout, or accessibility.
 - Minimize UI clutter — should feel like a built-in reading tool, not a bolted-on plugin.
 - Annotation should be effortless: select text → highlight → optional note, nothing more.
-- PDF export (later phase) is explicitly personal-use only, to respect authors.
+- PDF export — **decided against building this.** Considered both generating from
+  extension data and post-processing AO3's native PDF export; both rejected as
+  too fragile/heavy for the value. Not planned.
 
 ## Target Platform
 
 - Chrome Extension, Manifest V3
-- Should also work unmodified on Chromium browsers: Opera, Edge, Brave
+- Should also work unmodified on Chromium browsers: Opera, Edge, Brave (not yet manually tested)
 
 ## Tech Stack
 
-- TypeScript (preferred over plain JS)
-- HTML/CSS for popup and sidebar UI
-- Chrome Extension APIs: Content Scripts, `chrome.storage.local`
-- PDF generation: `pdf-lib` — Phase 7 only, generated from DOM content directly (not AO3's native PDF export, see Phase 7 notes)
-- Text-anchoring approach inspired by `dom-anchor-text-quote` (prefix/suffix + offset fallback)
+- TypeScript
+- HTML/CSS for popup UI
+- Chrome Extension APIs: Content Scripts, `chrome.storage.local`, `chrome.tabs`
+- Text-anchoring: exact-substring matching, now chapter-aware (see Phase 3 below).
+  Prefix/suffix/offset fuzzy matching was considered and explicitly **descoped**
+  (see Phase 3 notes) in favor of a simpler "tell the reader plainly" approach.
 
 ## Project Structure
 
@@ -49,22 +53,19 @@ src/
 │   ├── content.ts
 │   ├── highlight.ts
 │   ├── annotation.ts
-│   └── storage.ts
+│   ├── storage.ts
+│   └── content.css
 ├── popup/
 │   ├── popup.html
 │   ├── popup.ts
 │   └── popup.css
-├── library/
-│   ├── library.ts
-│   └── library.css
-├── pdf/
-│   └── export.ts
 └── assets/
 ```
 
-## Data Structure
+(`library/` and `pdf/` folders from the original plan were never created — PDF
+export was descoped, and the popup doubles as the library view.)
 
-Each AO3 work has its own annotation collection:
+## Data Structure
 
 ```json
 {
@@ -77,10 +78,8 @@ Each AO3 work has its own annotation collection:
     {
       "id": "...",
       "chapter": 1,
+      "chapterId": "112331803",
       "selectedText": "...",
-      "contextPrefix": "...",
-      "contextSuffix": "...",
-      "charOffset": 0,
       "note": "...",
       "color": "yellow"
     }
@@ -88,225 +87,278 @@ Each AO3 work has its own annotation collection:
 }
 ```
 
-`contextPrefix`/`contextSuffix`/`charOffset` support robust re-anchoring (see
-Phase 3) — don't rely on exact-substring matching alone once past Phase 1.
+`chapterId` was added (Phase 3, see below) — AO3's own chapter identifier from
+the URL (`/works/<id>/chapters/<chapterId>`), used to avoid false "highlight
+missing" reports on multi-chapter works. `contextPrefix`/`contextSuffix`/
+`charOffset` still exist as unused optional fields on `Annotation` — the
+fuzzy-matching approach they were meant for was descoped, so these are
+currently dead fields kept for potential future use.
 
-## Known Hard Problems (design for these early)
+## Status Summary
 
-1. **Highlight re-anchoring.** AO3's DOM can shift (typo fixes, work skins,
-   chapter restructuring). Exact-text matching alone will silently fail or
-   false-positive on common phrases. Store surrounding context + offset as
-   fallback anchors, and decide explicitly what happens when a highlight
-   can't be relocated (drop silently vs. flag in sidebar).
-2. **Multi-chapter / "entire work" view.** AO3 supports reading chapter-by-
-   chapter or as one long page. Content script must detect view mode and
-   adjust offsets/restoration accordingly — annotations made in one mode must
-   still restore in the other.
-3. **Storage limits.** Default `chrome.storage.local` quota (~10MB) may not
-   be enough for heavy annotators. Request `unlimitedStorage` permission from
-   the start.
-4. **Login-gated / mature content.** Content script must still fire correctly
-   on works behind the login/18+ click-through gate.
-
-## Phases
-
-### Phase 0 — Setup (1–2 days)
-Environment ready, no features yet.
-- Scaffold repo with structure above
-- "Hello World" Manifest V3 extension loads unpacked in Chrome
-- TypeScript build configured (esbuild or vite)
-- Content script confirmed injecting only on `archiveofourown.org/works/*`
-- **Done when:** console.log fires from the extension on a real AO3 work page
-
-### Phase 1 — Highlighting core (Week 1) — ✅ built, has open bugs (see log below)
-Select text, save a highlight, see it persist across a refresh. Single
-session, single chapter, exact-text matching is fine for now.
-- Text selection → popup with color options (yellow/blue/green/pink) — done
-- Apply highlight as inline `<span>` wrapping the selected DOM range — done
-- Save to `chrome.storage.local` — done
-- Re-find and re-apply saved highlights on page load — done, but see
-  Known Issue #4 (highlights sometimes don't reappear after refresh)
-- Overlapping/layered highlights are allowed on purpose — dragging over
-  already-highlighted text creates a second, separate highlight span rather
-  than recoloring or blocking. This was a deliberate choice (see log).
-- **Done when:** highlight a sentence, refresh, it's still highlighted
-
-### Phase 2 — Notes (Week 2) — ✅ built
-Attach, edit, delete notes on existing highlights.
-- Click a highlight (no drag) → popover to add/edit a note — done
-- Note persists alongside the highlight — done
-- Delete note without deleting the highlight — done
-- Delete highlight (removes its note too) — done
-- Color can also be changed from the same note popover (color swatches at
-  top, current color has a dark ring) — done
-- Both popovers (color-pick and note) have a drag handle so the user can
-  reposition them anywhere on screen — done
-- **Done when:** full create/edit/delete cycle works and survives a refresh
+| Phase | Status |
+|---|---|
+| Phase 0 — Setup | ✅ Done |
+| Phase 1 — Highlighting core | ✅ Done, exceeds original scope |
+| Phase 2 — Notes | ✅ Done |
+| Phase 3 — Robust anchoring | ⚠️ Redesigned & partially done — see below |
+| Phase 4 — Library popup | ✅ Done, with an extra delete feature |
+| Phase 5 — Sidebar | ❌ Not started |
+| Phase 6 — Polish pass | ⚠️ Partially done (see below) |
+| Phase 7 — PDF export | ❌ Descoped, not planned |
 
 ---
 
-## Known Issues / Bug Log (Phase 1–2)
+## Phase 1 — Highlighting core — ✅ done, exceeds original scope
 
-Keeping this so fixes aren't lost or re-broken by future edits.
+Original scope (single paragraph, exact-text match, single session) is done
+and was substantially extended during bug-fixing:
 
-1. **Cross-paragraph selection corrupts the page.** Dragging a selection
-   that starts in one `<p>` and ends in another breaks the DOM (extracted
-   content merges paragraphs together, popover renders inline instead of
-   floating). **Fix status: written but not yet confirmed applied** — a
-   guard was added to `handleSelection` in `content.ts` that checks
-   `range.startContainer`/`endContainer` against their closest `<p>`, and
-   silently clears the selection (no popover) if they don't match or either
-   is missing a paragraph ancestor. **Double check this guard is actually in
-   the current `content.ts` before relying on it** — it was written once,
-   then temporarily set aside, and may not have been re-applied after later
-   rewrites of the file. Real fix belongs in Phase 3 (proper multi-paragraph
-   anchoring).
+- Text selection → popup with color options (yellow/blue/green/pink) — done
+- Apply highlight as one or more `<span>`s wrapping the selected range — done,
+  see "Cross-block and inline-element highlighting" below for why it's
+  "one or more"
+- Save to `chrome.storage.local` — done
+- Re-find and re-apply saved highlights on page load — done
+- Overlapping/layered highlights allowed on purpose (unchanged from original
+  design) — done
 
-2. **Popover reappearing intermittently ("sometimes the highlight option
-   doesn't show up").** Root cause was a leftover
-   `document.addEventListener("click", ..., { once: true })` from the
-   previous popover that hadn't been cleaned up, so it fired on the very
-   next click and closed the new popover instantly. **Fixed** —
-   `popover.ts` now tracks its own listener references (`outsideClickHandler`,
-   `escHandler`) and explicitly removes them in `removeColorPopover()`.
+### Cross-block and inline-element highlighting (beyond original scope)
 
-3. **New selection blocked when starting a drag on top of the still-open
-   popover.** If the user didn't click away first and instead immediately
-   drag-selected new text near where the popover was rendered, the
-   mousedown landed on the popover element and ate the gesture. **Fixed** —
-   `content.ts` now closes the popover on `mousedown` (not just `mouseup`),
-   so it's never in the way when a new selection starts.
+The original plan treated cross-paragraph selection as invalid (see old
+Known Issue #1) and multi-paragraph anchoring as a Phase 3 concern. This was
+revisited: **cross-paragraph/cross-block highlighting is now a supported
+feature**, not blocked.
 
-4. **Highlights sometimes don't survive a page refresh ("text not found"
-   warnings in console).** Root cause: `findTextRange` in `highlight.ts`
-   originally skipped text that was already inside a highlight `<span>`
-   (via an `acceptNode` filter on the `TreeWalker`). Once overlapping
-   highlights were intentionally allowed (see Known Issue #5), restoring the
-   first overlapping highlight would wrap that text, and the walker would
-   then skip past it when searching for the second one's text, causing a
-   false "text not found." **Fix status: written and should be applied** —
-   `findTextRange` was simplified to a plain `TreeWalker` with no
-   `acceptNode` filter, so it can find and wrap text regardless of whether
-   it's already inside another highlight span. **If highlights are still not
-   reappearing after refresh, check `highlight.ts`:**
-   - Confirm `findTextRange` has no `acceptNode` filtering logic left in it
-   - Confirm the `locate()` helper function still exists at the bottom of
-     the file (it's easy to accidentally delete when replacing
-     `findTextRange`, since it's not called anywhere else) — `findTextRange`
-     will fail to compile without it, which would also stop restoration
-     silently
-   - If both of those are correct and highlights still vanish on refresh,
-     check whether `restoreHighlights()` in `content.ts` is actually
-     awaited before the click/selection listeners are attached in `init()`
+- `highlight.ts` wraps every individual text node touched by a selection in
+  its own `<span>` (all sharing one `annotationId`), instead of trying to
+  wrap a whole range in a single `<span>` via `surroundContents()`. This
+  correctly handles selections that cross paragraph boundaries, headings,
+  blockquotes, and inline elements (links, `<em>`, `<i>`, etc.) without the
+  DOM corruption the original single-span approach caused.
+- `BLOCK_SELECTOR` (`p, h1-h6, blockquote, li, dd, dt`) defines what counts
+  as a splittable block boundary. `getLeafBlocks()` filters out
+  container/leaf duplicates (e.g. a `<blockquote><p>` pair only counts once)
+  to avoid double-wrapping.
+- `unwrapHighlight`/`getHighlightSpans` now operate on **all spans sharing an
+  annotation id**, not a single span, since one highlight can now be backed
+  by several `<span>` elements.
 
-5. **Overlapping/layered highlights: recolor-in-place vs. allow layering.**
-   Two designs were tried. First pass: re-selecting text fully inside an
-   existing highlight would recolor that span in place rather than create a
-   new overlapping one (to avoid a visual "wrong color shows through"
-   layering bug). This was then **explicitly reverted** — layering is
-   wanted, so a new selection over existing highlighted text now just
-   creates an independent second span on top, same as if the text weren't
-   highlighted at all. Current `handleSelection` in `content.ts` should
-   **not** contain any `findEnclosingHighlight`/overlap-detection logic —
-   if it does, that's a leftover from the reverted approach and should be
-   removed.
+### Highlighting extended to title, byline, summary, and notes
 
-6. **Popover textarea didn't fit its container / had a manual resize
-   handle that wasn't wanted.** Root cause: `basePopoverStyle` in
-   `popover.ts` didn't set `box-sizing: border-box`, so padding pushed
-   child elements outside the visual border. **Fixed** — added
-   `el.style.boxSizing = "border-box"` to `basePopoverStyle`, and changed
-   the note textarea's `resize` from `"vertical"` to `"none"` so its size is
-   fixed rather than user-adjustable.
+Originally the content script only watched `#workskin` (chapter text).
+`STORY_CONTAINER_SELECTOR` is now `#main`, which also covers the work title,
+author byline, Summary, and Notes sections — all of these are now
+highlightable and annotatable, not just story paragraphs.
 
-7. **Mobile/iPad support is not possible for this architecture.** Chrome
-   for Android has no extension system at all, and iOS requires all
-   browsers (including "Chrome" on iOS) to use Apple's WebKit engine, which
-   also doesn't support Chrome extensions. This project is desktop-only:
-   Chrome, Brave, Edge, Opera, on Windows/Mac/Linux. A mobile version would
-   need a separate project (Firefox for Android's WebExtensions support, a
-   userscript-based approach, or a standalone reader app) — explicitly out
-   of scope for now, not a bug to fix.
+### `findTextRange` boundary-matching fix
 
-**Workflow note for whoever picks this up:** prefer "replace this whole
-file" over partial edits where possible — several of the bugs above were
-introduced or reintroduced by partial pastes (leftover duplicate imports,
-an accidentally-deleted helper function, a fix that was written but not
-actually re-applied after a later rewrite). Full-file replacement plus a
-rebuild + reload-extension + refresh-page cycle after every change is the
-safest loop.
+A subtle bug: text nodes are concatenated with no separator when computing
+match offsets. When a match began or ended exactly at a paragraph seam, the
+offset resolved to the wrong side of the boundary, causing an entire
+unrelated adjacent paragraph to get swallowed into a highlight on restore.
+Fixed by splitting the old single `locate()` helper into `locateStart()` and
+`locateEnd()` — `locateStart` rolls forward to the next node on an exact
+boundary match; `locateEnd` stays put. This was found and fixed through
+extensive before/after-refresh diagnostic testing.
 
-### Phase 3 — Robust anchoring & multi-chapter (Week 3)
-Fix the fragile part before building more on top of it.
-- Store prefix/suffix context + char offset, not just exact string match
-- Handle "entire work" view vs. per-chapter view
-- Graceful failure when a highlight can't be relocated
-- **Done when:** highlights survive across view-mode switches and a manually
-  edited passage doesn't crash anything
+### `wrapSingleRange` root-node fix
 
-### Phase 4 — Library popup (Week 4)
-Extension icon → popup showing every annotated work.
-- Popup UI: title, author, highlight count, note count, last opened
-- Click a work → opens that AO3 URL
-- Update `lastOpened` on visit
-- **Done when:** you can browse annotated works without digging through AO3 history
+When an entire selection sits inside a single text node,
+`range.commonAncestorContainer` *is* that text node — a `TreeWalker` rooted
+there has no children to walk, so highlighting silently did nothing (data
+saved, no visible span). Fixed by using the text node's parent element as
+the walker root whenever the raw root is itself a text node.
 
-### Phase 5 — Sidebar (Week 5)
-In-page collapsible panel listing annotations for the current work.
-- Lists annotations in reading order with text preview + note
-- Click → scrolls to that passage
-- Edit/delete directly from sidebar
-- Both inline highlight edits and sidebar edits go through a single shared
-  `updateAnnotation(id, changes)` function — no duplicated update logic
-- **Done when:** editing from either the sidebar or inline stays in sync
+**Done when:** highlight a sentence (including across paragraphs, through
+inline elements, or in the title/summary/notes), refresh, it's still
+highlighted with the correct color and boundaries. ✅ Confirmed via repeated
+before/after-refresh testing across several multi-chapter fics.
 
-### Phase 6 — Polish pass (Week 6)
-Make it feel like a real product, not a prototype.
-- Empty states (no annotations yet, empty library)
-- Visual polish that complements AO3's aesthetic without clashing
-- Switch to `unlimitedStorage` permission
-- Manual test pass on Brave/Edge/Opera
-- Basic error handling (storage quota, malformed data, deleted works)
-- **Done when:** comfortable having someone else install it
+## Phase 2 — Notes — ✅ done
 
-### Phase 7 — Stretch: PDF export (Week 7+)
-Only after everything above is solid.
-- **Library: `pdf-lib`.** Chosen over jsPDF for its friendlier document-layout
-  API (text flow, embedded fonts, drawing highlight rectangles, appending
-  endnote sections) and because it works fine in a browser/extension context.
-- **Generate the PDF from the extension's own DOM content, not from AO3's
-  native "Download PDF."** Considered post-processing AO3's server-generated
-  PDF instead, but rejected: AO3's PDF layout (fonts, line/page breaks) is
-  decided server-side and out of the extension's control, so matching
-  highighted passages to exact pixel coordinates in an already-rendered PDF
-  requires `pdf.js` text extraction + coordinate mapping — more fragile and
-  more work than just building the PDF directly from content the extension
-  already has (it already stores `selectedText`, `chapter`, `note`, `color` —
-  everything needed to lay the page out itself).
-- Render story text with highlight colors preserved
-- **Note display: endnotes per chapter.** Each highlighted passage gets a
-  small superscript reference number; notes are collected and listed at the
-  end of their chapter (not the very end of the whole work, and not inline).
-  Chosen over margin notes (layout too fiddly with dynamic paragraph length)
-  and inline bracketed notes (clutters the story text). Keeps the story body
-  visually clean — just highlight color + a number — and is straightforward
-  to implement since notes are appended sequentially rather than needing
-  column/position math.
-- **Done when:** exported PDF is readable, story text stays clean, and every
-  numbered reference has a clearly matching endnote at the chapter's end
+All original scope done: add/edit/delete note, delete highlight (removes
+note too), recolor from the note popover, drag handle on both popovers.
+
+### Popover sizing/layout fixes (beyond original scope)
+
+- Note popover width increased (220px → 300px) and button row given
+  `flex-wrap` + non-shrinking buttons (`flex: 0 0 auto`) so the three action
+  buttons (Delete highlight / Delete note / Save) never overflow the
+  popover's border regardless of button padding/font size.
+- Buttons given explicit `line-height` and `inline-flex` centering to fix
+  text rendering below the button's visual box (inherited AO3 line-height
+  was pushing labels off-center).
+
+**Done when:** full create/edit/delete cycle works and survives a refresh. ✅
+
+---
+
+## Phase 3 — Robust anchoring & multi-chapter — ⚠️ redesigned
+
+The original plan (prefix/suffix + offset fuzzy matching to survive author
+text edits) was **explicitly descoped** as a deliberate decision — judged too
+likely to introduce new fragile-matching bugs for the value it added.
+Replaced with a much lighter approach:
+
+### What was built instead
+
+- **Missing-highlights banner.** `restoreHighlights()` in `content.ts` counts
+  annotations whose `selectedText` can no longer be found on the page. If
+  any are missing, `popover.ts`'s `showMissingHighlightsBanner(count)` shows
+  a dismissible banner fixed to the top of the page: *"N of your highlights
+  couldn't be found — this fic may have been updated since you last read
+  it."* Auto-dismisses after 5 seconds, or immediately via a Dismiss button.
+  No attempt is made to relocate the highlight — this is an honest notice,
+  not a fuzzy-match fallback.
+- **Multi-chapter awareness (chapterId).** Originally, `restoreHighlights`
+  checked every saved annotation against whatever chapter was currently
+  loaded, regardless of which chapter it actually belonged to — causing
+  false "may have been updated" banners on multi-chapter works, since a
+  chapter-1 highlight will correctly fail to be found while viewing chapter
+  2. Fixed by adding `chapterId` (AO3's chapter ID from the URL) to
+  `Annotation`, set at creation time via `getCurrentChapterId()`. On
+  restore, annotations belonging to a different `chapterId` than the one
+  currently being viewed are skipped entirely — not attempted, not counted
+  toward the missing-highlights banner. Annotations saved before this field
+  existed have `chapterId: null` and are still attempted on every chapter
+  (harmless) but never count toward the banner, since it's ambiguous
+  whether a `null`-chapterId miss is a real edit or a different chapter.
+- Exact-text matching (`findTextRange`) is otherwise **unchanged** — no
+  fuzzy/prefix-suffix logic was added. `contextPrefix`/`contextSuffix`/
+  `charOffset` remain unused fields on `Annotation`, kept in case this
+  direction is revisited later.
+- Deleted-work handling (what happens if the author deletes the fic
+  entirely) was discussed but **not yet implemented** — currently, a
+  deleted work's annotations would just perpetually fail to restore and
+  likely trigger the missing-highlights banner with a misleading message
+  ("may have been updated" vs. the more accurate "no longer exists").
+  Flagged for Phase 6 polish.
+
+**Done when (revised):** a highlight whose exact text is no longer present
+tells the reader clearly instead of failing silently, and multi-chapter
+works don't produce false positives. ✅ Both confirmed via testing.
+
+---
+
+## Phase 4 — Library popup — ✅ done, with an added feature
+
+- Popup lists every annotated work: **title, author, last opened** (highlight
+  count/note count were explicitly excluded per request — simpler than
+  originally planned)
+- Click a work → opens that AO3 URL in a new tab via `chrome.tabs.create()`
+  (required adding `"tabs"` to `manifest.json` permissions)
+- `lastOpened` updates both when a new highlight is saved AND now also on
+  every page visit to an already-annotated work (added in `init()` in
+  `content.ts` — original plan only updated it on new-highlight save)
+- List sorts by most-recently-opened first
+- **Added beyond original scope: per-work Delete button.** Each list item
+  has a "Delete" button (with confirmation dialog) that calls the new
+  `deleteWork(workId)` in `storage.ts` (`chrome.storage.local.remove`),
+  wiping all highlights/notes for that work and removing it from the list
+  immediately, no popup reopen needed. Does not affect any already-open tab
+  showing that fic until that tab is refreshed.
+
+**Done when:** you can browse annotated works without digging through AO3
+history, and remove ones you no longer want tracked. ✅
+
+---
+
+## Known Issues / Bug Log
+
+### Resolved during Phase 1–4 work
+
+All six issues from the original Phase 1–2 bug log are resolved:
+1. Cross-paragraph selection — no longer treated as an error case; now a
+   supported feature (see Phase 1 above).
+2. Popover reappearing intermittently — confirmed fixed, still in place.
+3. New selection blocked by open popover — confirmed fixed, still in place.
+4. Highlights not surviving refresh — root cause was more nuanced than
+   originally diagnosed; see "`findTextRange` boundary-matching fix" and
+   "`wrapSingleRange` root-node fix" above for the actual fixes that
+   resolved this after extensive testing.
+5. Overlapping/layered highlights — confirmed still allowed, no
+   `findEnclosingHighlight` regression found.
+6. Popover textarea sizing — confirmed fixed; further extended with the
+   button-row overflow fixes described in Phase 2 above.
+7. Mobile/iPad — unchanged, still correctly out of scope.
+
+### New issues found and fixed during Phase 3–4 work
+
+8. **Multi-paragraph highlight swallowing an unrelated adjacent paragraph on
+   restore.** See "`findTextRange` boundary-matching fix" in Phase 1 above.
+   Root cause: flat text-node concatenation with no boundary awareness,
+   compounded by `#main` becoming a much larger container than the original
+   `#workskin`. Fixed via `locateStart`/`locateEnd` split.
+9. **Single-text-node highlights silently not rendering.** See
+   "`wrapSingleRange` root-node fix" above. Fixed.
+10. **False "fic may have been updated" banners on multi-chapter works.**
+    See Phase 3 above. Fixed via `chapterId` tracking.
+11. **`dist/popup.js` going stale after `popup.ts` edits without a rebuild**
+    — not a code bug, a process gotcha: always rebuild before testing.
+    Worth remembering if the popup ever appears to ignore changes again.
+
+### Known, not yet fixed
+
+- **Deleted-work detection** (see Phase 3 notes above) — not implemented.
+  Flagged for Phase 6.
+- Empty-paragraph highlighting produces a tiny near-invisible highlighted
+  sliver (visible as a thin colored bar) when a cross-paragraph selection
+  spans an empty `<p>` in between. Cosmetic, not corrupting, not yet
+  addressed.
+
+---
+
+## Phase 5 — Sidebar — ❌ not started
+
+Original plan unchanged: in-page collapsible panel listing annotations for
+the current work, click-to-scroll, inline edit/delete synced with the
+existing popover-based editing via a shared `updateAnnotation` path (already
+exists in `storage.ts`, just needs a second UI consumer).
+
+## Phase 6 — Polish pass — ⚠️ partially done
+
+- `unlimitedStorage` permission — ✅ already present in `manifest.json`
+  (done earlier than planned)
+- Empty states — ✅ done for the popup ("No annotated works yet.")
+- Deleted-work error handling — ❌ not done (see above)
+- Storage-quota / malformed-data error handling — ❌ not done
+- Cross-browser manual test pass (Brave/Edge/Opera) — ❌ not done
+- Visual polish pass — partially informal (popover sizing fixes count, but
+  no dedicated aesthetic pass has been done)
+
+## Phase 7 — PDF export — ❌ descoped, not planned
+
+Discussed two approaches (build from extension data via `pdf-lib`, or
+post-process AO3's native PDF export) and decided not to pursue either —
+judged not worth the complexity/fragility for this project's scope. Not on
+the roadmap unless revisited later.
+
+---
 
 ## Explicitly Out of Scope (MVP)
 
 Search library, favorite works, bookmark chapter locations, cloud sync, user
 accounts, statistics, export-annotations-only, import/export backups, dark
-mode, keyboard shortcuts. Revisit post-v1.
+mode, keyboard shortcuts, PDF export (see Phase 7). Revisit post-v1.
 
-## Notes for Claude Code
+## Notes for whoever picks this up next
 
-- Phase 3 (robust anchoring) is the one most likely to get skipped in favor
-  of more visually satisfying features — don't let it get skipped. Every
-  later phase depends on anchoring being reliable.
-- Prefer exact-text matching in Phase 1 deliberately — don't over-engineer
-  anchoring before Phase 3. Ship the simple version first, replace it later.
+- **Rebuild after every source change, always.** Several confusing "nothing
+  happened" sessions turned out to just be a stale `dist/*.js` from
+  forgetting to rerun the build. Full loop: edit → rebuild → reload
+  extension in `chrome://extensions` → refresh the AO3 tab → test.
+- **`chapterId` is `null` on any annotation saved before Phase 3's fix.**
+  Old test data will keep being attempted on every chapter view and may
+  occasionally log a console "not found" warning — this is expected debris,
+  not a live bug, unless it's happening on annotations made *after* the fix.
+- Fuzzy text re-anchoring (prefix/suffix/offset) was deliberately not built.
+  If author-edited-fic accuracy becomes a real pain point later, the unused
+  `contextPrefix`/`contextSuffix`/`charOffset` fields are already there to
+  build on — but this was a conscious choice to keep matching logic simple
+  and debuggable, not an oversight.
 - Keep the content script's DOM footprint minimal; never mutate AO3's own
-  elements beyond wrapping selected text in highlight `<span>`s.
+  elements beyond wrapping selected text in highlight `<span>`s. (Unchanged
+  principle — still holds even with the expanded `#main` container and
+  multi-span highlighting.)
+```
