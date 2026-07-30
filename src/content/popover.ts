@@ -353,3 +353,5 @@ export function showMissingHighlightsBanner(count: number): void {
   banner.appendChild(dismissBtn);
   document.body.appendChild(banner);
 }
+
+//hehe
