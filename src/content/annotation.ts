@@ -1,5 +1,6 @@
 import type { Annotation, AnnotatedWork, HighlightColor } from "./storage";
 
+//grabs the fic's title and author name
 export function getWorkMetadata(): { title: string; author: string } {
   const title =
     document.querySelector("h2.title.heading")?.textContent?.trim() ?? "Untitled work";
@@ -9,18 +10,20 @@ export function getWorkMetadata(): { title: string; author: string } {
   return { title, author };
 }
 
+//grabs the fic's chapter/s
 function getCurrentChapterId(): string | null {
   const match = window.location.pathname.match(/\/chapters\/(\d+)/);
   return match ? match[1] : null;
 }
 
+//random unique ID, the chapter, empty note slot 
 export function createAnnotation(
   selectedText: string,
   color: HighlightColor
 ): Annotation {
   return {
     id: crypto.randomUUID(),
-    chapter: 1,
+    chapter: 1, //useless, was added before multichapter fics were considered, will remove this i prommy 
     chapterId: getCurrentChapterId(),
     selectedText,
     note: "",
@@ -28,6 +31,7 @@ export function createAnnotation(
   };
 }
 
+//container ready to hold all future highlights for hihglighted fic
 export function createWorkShell(workId: string): AnnotatedWork {
   const { title, author } = getWorkMetadata();
   return {
