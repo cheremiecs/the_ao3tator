@@ -27,51 +27,54 @@ function getCurrentChapterId(): string | null {
   return match ? match[1] : null;
 }
 
+
 function getStoryContainer(): Element | null {
   return document.querySelector(STORY_CONTAINER_SELECTOR);
 }
 
+//re-applies saved highlights when a page loads
 async function restoreHighlights(workId: string, container: Element): Promise<void> {
   const work = await getWork(workId);
   if (!work) return;
 
   const currentChapterId = getCurrentChapterId();
-  let missingCount = 0;
+  let missingCount = 0; //track how many highlights end up missing
 
-  for (const annotation of work.annotations) {
-    // Skip annotations that belong to a different chapter than the one
-    // currently being viewed. Annotations with no stored chapterId (saved
-    // before this field existed) are attempted regardless, but a failure
-    // to find them isn't counted toward the "fic was edited" banner, since
-    // we can't tell whether that's a real edit or just a different chapter.
+//if highlight is clearly tagged as belonging to some other chapter, don't restore it, move on to the next saved highlight
+  for (const annotation of work.annotations) { 
     const belongsToOtherChapter =
-      annotation.chapterId !== null &&
-      currentChapterId !== null &&
-      annotation.chapterId !== currentChapterId;
+      annotation.chapterId !== null && 
+      currentChapterId !== null && 
+      annotation.chapterId !== currentChapterId; 
     if (belongsToOtherChapter) continue;
 
     const range = findTextRange(container, annotation.selectedText);
     if (!range) {
+      /*
       console.warn(
         `[AO3 Annotator] Could not restore highlight ${annotation.id} — text not found.`
-      );
+      ); 
+      */
       if (annotation.chapterId !== null) {
         missingCount++;
       }
       continue;
     }
-    // DIAGNOSTIC — compare what we expected to find vs what findTextRange
-    // actually returned, to catch any mismatch before wrapping happens.
+
     const foundText = range.toString();
     if (foundText !== annotation.selectedText) {
+      /*
       console.error(
         `[AO3 Annotator] MISMATCH for ${annotation.id}:`,
         "\n  expected:", JSON.stringify(annotation.selectedText),
         "\n  found:   ", JSON.stringify(foundText)
       );
+      */
     } else {
+      /*
       console.log(`[AO3 Annotator] OK ${annotation.id}:`, JSON.stringify(foundText));
-    }
+      */
+    } 
     wrapRangeAsHighlight(range, annotation.id, annotation.color, container);
   }
 
@@ -80,6 +83,7 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
   }
 }
 
+//finishes a text selection, shows the color popup if it's valid, builds the highlight, paints it on the page, saves it to storage, and cleans up the selection
 function handleSelection(workId: string, container: Element): void {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
@@ -88,16 +92,18 @@ function handleSelection(workId: string, container: Element): void {
   const selectedText = range.toString().trim();
   if (!selectedText) return;
 
-  if (!container.contains(range.commonAncestorContainer)) return;
+  if (!container.contains(range.commonAncestorContainer)) return; 
 
   const rect = range.getBoundingClientRect();
-  showColorPopover(rect.left, rect.bottom + 6, async (color) => {
+  showColorPopover(rect.left, rect.bottom + 6, 
+    async (color) => {
     const rangeCopy = range.cloneRange();
-    console.log(`[AO3 Annotator] About to save:`, JSON.stringify(selectedText));
+    //console.log(`[AO3 Annotator] About to save:`, JSON.stringify(selectedText));
     const annotation = createAnnotation(selectedText, color);
-    const spans = wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color, container);
-    const actuallyWrapped = spans.map((s) => s.textContent).join("");
-    console.log(`[AO3 Annotator] Actually wrapped:`, JSON.stringify(actuallyWrapped));
+    wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color, container);
+
+    //const actuallyWrapped = spans.map((s) => s.textContent).join("");
+    //console.log(`[AO3 Annotator] Actually wrapped:`, JSON.stringify(actuallyWrapped));
 
     const existing = (await getWork(workId)) ?? createWorkShell(workId);
     existing.annotations.push(annotation);
@@ -105,7 +111,7 @@ function handleSelection(workId: string, container: Element): void {
     await saveWork(existing);
 
     selection.removeAllRanges();
-    console.log(`[AO3 Annotator] Saved highlight ${annotation.id}`);
+    //console.log(`[AO3 Annotator] Saved highlight ${annotation.id}`);
   });
 }
 
