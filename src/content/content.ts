@@ -115,6 +115,7 @@ function handleSelection(workId: string, container: Element): void {
   });
 }
 
+//opens the note popover/ save a note, delete a note, delete the whole highlight, or changing color
 function handleHighlightClick(workId: string, span: HTMLElement, container: Element): void {
   const annotationId = span.dataset.annotationId;
   if (!annotationId) return;
@@ -127,16 +128,16 @@ function handleHighlightClick(workId: string, span: HTMLElement, container: Elem
     showNotePopover(rect.left, rect.bottom + 6, annotation.note, annotation.color, {
       onSave: async (note) => {
         await updateAnnotation(workId, annotationId, { note });
-        console.log(`[AO3 Annotator] Updated note on ${annotationId}`);
+        //console.log(`[AO3 Annotator] Updated note on ${annotationId}`);
       },
       onDeleteNote: async () => {
         await updateAnnotation(workId, annotationId, { note: "" });
-        console.log(`[AO3 Annotator] Deleted note on ${annotationId}`);
+        //console.log(`[AO3 Annotator] Deleted note on ${annotationId}`);
       },
       onDeleteHighlight: async () => {
         await deleteAnnotation(workId, annotationId);
         unwrapHighlight(container, annotationId);
-        console.log(`[AO3 Annotator] Deleted highlight ${annotationId}`);
+        //console.log(`[AO3 Annotator] Deleted highlight ${annotationId}`);
       },
       onColorChange: async (color) => {
         const spans = getHighlightSpans(container, annotationId);
@@ -144,7 +145,7 @@ function handleHighlightClick(workId: string, span: HTMLElement, container: Elem
           s.style.backgroundColor = COLOR_HEX[color];
         });
         await updateAnnotation(workId, annotationId, { color });
-        console.log(`[AO3 Annotator] Recolored highlight ${annotationId} to ${color}`);
+        //console.log(`[AO3 Annotator] Recolored highlight ${annotationId} to ${color}`);
       }
     });
   });
