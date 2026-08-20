@@ -1,7 +1,3 @@
-// Shared types + storage helpers, matching the data structure defined in CLAUDE.md.
-// Phase 1 will start writing to these; Phase 3 will add the context/offset fields
-// to make re-anchoring reliable.
-
 export type HighlightColor = "yellow" | "blue" | "green" | "pink";
 
 export interface Annotation {
@@ -21,7 +17,7 @@ export interface AnnotatedWork {
   title: string;
   author: string;
   url: string;
-  lastOpened: string; // ISO timestamp
+  lastOpened: string; //timestamp
   annotations: Annotation[];
 }
 

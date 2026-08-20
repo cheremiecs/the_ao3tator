@@ -25,7 +25,7 @@ function basePopoverStyle(el: HTMLElement, left: number, top: number): void {
   el.style.boxSizing = "border-box";
 }
 
-/** Small grip bar at the top of a popover that lets the user drag it anywhere. */
+//Small grip bar at the top of a popover that lets the user drag it anywhere. 
 function createDragHandle(popover: HTMLElement): HTMLElement {
   const handle = document.createElement("div");
   handle.textContent = "⠿⠿⠿";
@@ -289,7 +289,7 @@ export function removeColorPopover(): void {
   }
 }
 
-// ---- Missing-highlights banner ----
+//Missing-highlights banner 
 
 const BANNER_ID = "ao3-annotator-missing-banner";
 
