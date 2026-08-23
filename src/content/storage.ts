@@ -5,9 +5,9 @@ export interface Annotation {
   chapter: number;
   chapterId: string | null; // AO3's chapter ID from the URL; null for older annotations saved before this existed
   selectedText: string;
-  contextPrefix?: string; // added in Phase 3
-  contextSuffix?: string; // added in Phase 3
-  charOffset?: number; // added in Phase 3
+  contextPrefix?: string; 
+  contextSuffix?: string; 
+  charOffset?: number; 
   note: string;
   color: HighlightColor;
 }
@@ -22,6 +22,7 @@ export interface AnnotatedWork {
 }
 
 const storageKey = (workId: string) => `work:${workId}`;
+const LAST_BACKUP_KEY = "lastBackupDate"
 
 export async function getWork(workId: string): Promise<AnnotatedWork | null> {
   const result = await chrome.storage.local.get(storageKey(workId));
@@ -62,4 +63,25 @@ export async function deleteAnnotation(workId: string, annotationId: string): Pr
 
   work.annotations = work.annotations.filter((a) => a.id !== annotationId);
   await saveWork(work);
+}
+
+// Backup / restore 
+
+export async function saveLastBackupDate(): Promise<void> {
+  await chrome.storage.local.set({ [LAST_BACKUP_KEY]: new Date().toISOString() });
+}
+
+export async function getLastBackupDate(): Promise<string | null> {
+  const result = await chrome.storage.local.get(LAST_BACKUP_KEY);
+  return result[LAST_BACKUP_KEY] ?? null;
+}
+
+export async function exportAllWorks(): Promise<AnnotatedWork[]> {
+  return await getAllWorks();
+}
+
+export async function importWorks(works: AnnotatedWork[]): Promise<void> {
+  for (const work of works) {
+    await saveWork(work);
+  }
 }

@@ -9,10 +9,65 @@ h1 {
   margin: 0 0 12px;
 }
 
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.backup-actions button {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+}
+
+.backup-actions button:hover {
+  background: #eee;
+}
+
+#backup-reminder {
+  font-size: 12px;
+  background: #fff8e1;
+  border: 1px solid #e0c878;
+  color: #5c4a1a;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 12px;
+  display: none;
+}
+
+#backup-reminder.visible {
+  display: block;
+}
+
+#backup-reminder button {
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid #c9ac5a;
+  border-radius: 6px;
+  background: #fff;
+  color: #5c4a1a;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
 #work-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.work-item-wrapper {
+  position: relative;
+}
+
+.work-item-wrapper .work-item {
+  padding-right: 60px;
 }
 
 .work-item {
@@ -53,19 +108,6 @@ h1 {
   margin: 0;
 }
 
-.empty-state {
-  font-size: 13px;
-  color: #666;
-} 
-
-.work-item-wrapper {
-  position: relative;
-}
-
-.work-item-wrapper .work-item {
-  padding-right: 60px; /* room for the delete button */
-}
-
 .work-delete-btn {
   position: absolute;
   top: 8px;
@@ -81,4 +123,9 @@ h1 {
 
 .work-delete-btn:hover {
   background: #ffe5e5;
+}
+
+.empty-state {
+  font-size: 13px;
+  color: #666;
 }
