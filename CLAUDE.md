@@ -362,3 +362,223 @@ mode, keyboard shortcuts, PDF export (see Phase 7). Revisit post-v1.
   principle — still holds even with the expanded `#main` container and
   multi-span highlighting.)
 ```
+```markdown
+# AO3 Annotator
+
+## Project Overview
+
+A Chrome browser extension (Manifest V3) that lets readers privately annotate
+fanfiction on Archive of Our Own (AO3). Users highlight passages, attach notes,
+and everything persists locally via `chrome.storage.local` — no accounts, no
+cloud sync, nothing uploaded anywhere.
+
+## Core Goal
+
+Build a private annotation system similar to Kindle/Apple Books margin notes,
+but specifically for AO3. Readers can highlight favorite passages, write
+personal notes, revisit them later, and browse a personal library of
+annotated works — without AO3 ever knowing or being modified.
+
+## Tech Stack
+
+- TypeScript — the language everything is written in
+- esbuild — bundles/compiles TypeScript into the JS Chrome actually runs
+- HTML/CSS — used for the toolbar popup UI; everything injected onto AO3
+  pages is built dynamically in JS instead
+- Chrome Extension APIs (Manifest V3): `chrome.storage.local` (+
+  `unlimitedStorage`), `chrome.tabs`, Content Scripts
+
+## Project Structure
+
+```
+ao3-annotator/
+manifest.json
+src/
+├── content/
+│   ├── content.ts
+│   ├── highlight.ts
+│   ├── annotation.ts
+│   ├── storage.ts
+│   ├── popover.ts
+│   └── content.css
+├── popup/
+│   ├── popup.html
+│   ├── popup.ts
+│   └── popup.css
+└── assets/
+    ├── icon16.png
+    ├── icon48.png
+    └── icon128.png
+```
+
+`dist/` and `node_modules/` are build output and dependencies, both
+regenerated via `npm run build` / `npm install`, both gitignored.
+
+## Data Structure
+
+```json
+{
+  "workId": "63829213",
+  "title": "Crimson Rivers",
+  "author": "example_author",
+  "url": "...",
+  "lastOpened": "...",
+  "annotations": [
+    {
+      "id": "...",
+      "chapterId": "112331803",
+      "selectedText": "...",
+      "note": "...",
+      "color": "yellow"
+    }
+  ]
+}
+```
+
+Note: the old `chapter: number` field (originally hardcoded to `1`, never
+functional) was removed from `Annotation` — `chapterId` (AO3's real chapter
+ID pulled from the URL) is what actually powers chapter-aware restoring.
+`contextPrefix`/`contextSuffix`/`charOffset` were never added — fuzzy
+text-matching was considered and explicitly descoped (see below).
+
+---
+
+## What's Built
+
+### Highlighting
+- Select text anywhere inside AO3's `#main` container — story text, title,
+  author byline, Summary, or Notes, not just the chapter body — and a color
+  popup appears (yellow/blue/green/pink).
+- Highlighting works across paragraph/heading/blockquote boundaries in a
+  single selection, and through inline formatting (links, italics) without
+  breaking. Implemented by wrapping every individual text node touched by
+  the selection in its own `<span>` (all sharing one annotation ID), rather
+  than trying to wrap a whole range in one `<span>`.
+- Overlapping/layered highlights are allowed on purpose.
+- Highlights persist across page refreshes, saved per AO3 work in
+  `chrome.storage.local`.
+
+### Notes
+- Click an existing highlight to open a popover: add/edit/delete a note,
+  delete the whole highlight, or change its color.
+- A highlight spanning multiple `<span>`s (from crossing paragraphs) is
+  still treated and edited as one logical highlight, since all its spans
+  share the same annotation ID.
+
+### Missing-highlight banner
+- If a highlight's exact saved text can no longer be found on the page
+  (e.g. the author edited that part of the fic), a dismissible yellow
+  banner tells the reader plainly: "N of your highlights couldn't be found
+  — this fic may have been updated since you last read it." Auto-dismisses
+  after 5 seconds, or immediately via a Dismiss button.
+- No fuzzy/prefix-suffix re-matching is attempted — this was a deliberate
+  scope decision (see "Explicitly Descoped" below).
+
+### Multi-chapter awareness
+- Each highlight is tagged with `chapterId` (extracted from the URL) at
+  creation time.
+- On restore, a highlight belonging to a different chapter than the one
+  currently being viewed is skipped entirely — not attempted, not counted
+  toward the missing-highlights banner. This fixes an earlier false-positive
+  bug where switching chapters on the same multi-chapter fic incorrectly
+  triggered "this fic was updated" banners.
+- Annotations saved before `chapterId` existed have `chapterId: null` and
+  are still attempted on every chapter (harmless), but never count toward
+  the banner, since it's ambiguous whether a miss is a real edit or just a
+  different chapter.
+
+### Library popup
+- Click the extension's toolbar icon to see every annotated work: title,
+  author, last-opened date, sorted most-recently-opened first.
+- Click a work to open it in a new tab (`chrome.tabs.create`).
+- `lastOpened` updates both when a new highlight is saved and on every
+  revisit to an already-annotated work.
+- Each entry has a Delete button (with confirmation) that wipes all
+  highlights/notes for that specific work and removes it from the list
+  immediately.
+
+---
+
+## Known Bugs Fixed Along the Way
+
+- Cross-paragraph selections used to corrupt the DOM — now a fully
+  supported feature via per-text-node wrapping.
+- Highlight color silently failing on inline-formatted text (links,
+  italics) — fixed by splitting text nodes at selection boundaries before
+  wrapping, instead of relying on a single `surroundContents()` call across
+  a whole range.
+- A single-text-node selection could silently fail to render (data saved,
+  nothing painted) — fixed by using the text node's parent element as the
+  search root instead of the text node itself.
+- A highlight matching exactly at a paragraph boundary could swallow an
+  entire unrelated adjacent paragraph on restore — fixed by splitting the
+  old boundary-matching logic into separate `locateStart`/`locateEnd`
+  functions with different boundary-preference rules.
+- False "highlight missing" banners on multi-chapter works — fixed via
+  `chapterId` tracking (see above).
+- Note popover buttons overflowing/misaligning at various widths — fixed
+  with explicit `flex-wrap`, non-shrinking buttons, and corrected
+  line-height/centering.
+
+---
+
+## Explicitly Descoped
+
+- **Fuzzy text re-anchoring** (prefix/suffix/offset matching to survive
+  author text edits) — considered, deliberately not built. Judged too
+  likely to introduce new fragile-matching bugs for the value added.
+  Replaced with the simpler missing-highlights banner instead.
+- **PDF export** — considered two approaches (build from extension data via
+  `pdf-lib`, or post-process AO3's native PDF export) and decided not to
+  pursue either. Not on the roadmap.
+
+---
+
+## Not Yet Built
+
+- **In-page sidebar** — no collapsible panel listing all highlights for the
+  current work with click-to-scroll and inline edit/delete. Currently the
+  only way to interact with a highlight is finding and clicking it directly
+  in the story text.
+- **Backup/export of saved data** — no way to export annotations to a file
+  or re-import them. If browser storage is wiped (uninstall, clearing
+  extension data, profile reset), all highlights and notes are permanently
+  lost with no recovery path.
+- **Deleted-work detection** — no distinct handling for "this fic was
+  deleted by the author" vs. "this text was edited." Both currently look
+  identical to the extension (text not found), and would show the same
+  "may have been updated" banner even though the underlying cause is
+  different and the message is misleading for a deleted work.
+- **Cross-browser testing** — not yet manually verified on Brave, Edge, or
+  Opera, despite using standard Chromium extension APIs that should
+  theoretically work unmodified.
+- **Entire-work vs per-chapter view** — AO3 supports viewing a multi-chapter
+  fic as one long page instead of chapter-by-chapter. This interaction has
+  not been explicitly tested against the current highlighting/restoring
+  logic.
+- **Storage-quota and malformed-data error handling** — no explicit handling
+  for `chrome.storage.local` quota issues or corrupted saved data, beyond
+  what naturally falls out of existing checks.
+- **Console log cleanup** — a number of debug `console.log` statements
+  (save confirmations, restore diagnostics) were left in throughout
+  development. Some have since been commented out during a cleanup pass;
+  worth a final sweep before any wider sharing.
+
+---
+
+## Workflow Notes
+
+- Every source change requires a rebuild (`npm run build`) before it's
+  reflected in the extension — editing `.ts` files alone does nothing until
+  esbuild recompiles them into `dist/`.
+- After rebuilding, reload the extension in `chrome://extensions`, then
+  fully refresh the AO3 tab — a stale content script from before a reload
+  will throw "Extension context invalidated" errors if you try to interact
+  with the page without refreshing first.
+- Manifest permission changes (e.g. adding `"tabs"`) sometimes require a
+  full remove-and-reinstall of the unpacked extension, not just the reload
+  button, to take effect.
+- `getCurrentChapterId()` is currently duplicated identically in both
+  `annotation.ts` and `content.ts` — harmless, but a candidate for a small
+  future cleanup (extract to a shared location) rather than an active bug.
+```
