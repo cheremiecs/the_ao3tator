@@ -17,15 +17,16 @@ single <span> can't legally wrap a range that only partially touches an element 
 So the fix, wrapping each text node separately, solves the "color completely fails" problem, 
 but introduces this smaller cosmetic side effect of visible seams between spans.
 */
+
 function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLSpanElement[] {
-  if (range.startContainer.nodeType === Node.TEXT_NODE) { //is the point where this selection starts actually inside a text node?
+  if (range.startContainer.nodeType === Node.TEXT_NODE) { //is the point where this selection starts actually inside a text node
     const startNode = range.startContainer as Text; 
-    if (range.startOffset > 0 && range.startOffset < startNode.length) {
+    if (range.startOffset > 0 && range.startOffset < startNode.length) { //cut the text node into two pieces if the selection starts in the middle of it
       const newNode = startNode.splitText(range.startOffset);
       range.setStart(newNode, 0);
     }
   }
-  if (range.endContainer.nodeType === Node.TEXT_NODE) {
+  if (range.endContainer.nodeType === Node.TEXT_NODE) { //clean up the end of the selection in the same way, if it ends in the middle of a text node
     const endNode = range.endContainer as Text;
     if (range.endOffset > 0 && range.endOffset < endNode.length) {
       endNode.splitText(range.endOffset);
