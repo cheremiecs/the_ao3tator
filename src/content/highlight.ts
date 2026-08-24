@@ -33,10 +33,11 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
     }
   }
 
-  // If the whole selection sits inside one text node, commonAncestorContainer
-  // IS that text node — but a TreeWalker rooted at a Text node has no
-  // children to walk. Use the parent element instead whenever the root
-  // itself is a text node.
+  /* If the whole selection sits inside one text node, commonAncestorContainer
+   IS that text node — but a TreeWalker rooted at a Text node has no
+  children to walk. Use the parent element instead whenever the root
+  itself is a text node.
+  */
   const rawRoot = range.commonAncestorContainer;
   const root = rawRoot.nodeType === Node.TEXT_NODE ? rawRoot.parentElement! : rawRoot;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
