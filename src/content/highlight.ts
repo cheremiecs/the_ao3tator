@@ -9,9 +9,7 @@ export const COLOR_HEX: Record<HighlightColor, string> = {
   pink: "#ED93B1"
 };
 
-// Elements treated as "block" boundaries for splitting cross-block
-// selections — covers story paragraphs as well as the title, byline,
-// summary, and notes sections, which don't use <p> tags.
+//p for paragrapgh; h1-h6 for headings; blockquote for summary/notes; li for list items; dd/dt for definition lists
 const BLOCK_SELECTOR = "p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt";
 
 /**
