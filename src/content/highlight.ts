@@ -12,17 +12,14 @@ export const COLOR_HEX: Record<HighlightColor, string> = {
 //p for paragrapgh; h1-h6 for headings; blockquote for summary/notes; li for list items; dd/dt for definition lists
 const BLOCK_SELECTOR = "p, h1, h2, h3, h4, h5, h6, blockquote, li, dd, dt";
 
-/**
- * Wraps every individual text node touched by `range` in its own <span>,
- * rather than trying to wrap the whole range in one <span> via
- * surroundContents(). A single, fully-contained text node can always be
- * wrapped safely — surroundContents() only fails when a node is *partially*
- * contained, which can't happen once we've split text nodes at the
- * boundaries and are wrapping one text node at a time.
- */
+/*
+single <span> can't legally wrap a range that only partially touches an element like <em>. 
+So the fix, wrapping each text node separately, solves the "color completely fails" problem, 
+but introduces this smaller cosmetic side effect of visible seams between spans.
+*/
 function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLSpanElement[] {
-  if (range.startContainer.nodeType === Node.TEXT_NODE) {
-    const startNode = range.startContainer as Text;
+  if (range.startContainer.nodeType === Node.TEXT_NODE) { //is the point where this selection starts actually inside a text node?
+    const startNode = range.startContainer as Text; 
     if (range.startOffset > 0 && range.startOffset < startNode.length) {
       const newNode = startNode.splitText(range.startOffset);
       range.setStart(newNode, 0);
