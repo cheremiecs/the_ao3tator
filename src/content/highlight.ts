@@ -72,15 +72,16 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
   return spans;
 }
 
+// Returns the closest block-level element containing the given node, or null if none is found.
 function getContainingParagraph(node: Node): HTMLElement | null {
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   return el?.closest(BLOCK_SELECTOR) ?? null;
 }
 
-/**
- * Returns every block-level element matching BLOCK_SELECTOR, but only the
- * "leaf" ones — if a <blockquote> contains a <p>, only the <p> is kept.
- */
+/*
+ Returns every block-level element matching BLOCK_SELECTOR, but only the
+ "leaf" ones — if a <blockquote> contains a <p>, only the <p> is kept.
+*/
 function getLeafBlocks(container: Element): HTMLElement[] {
   const candidates = Array.from(container.querySelectorAll<HTMLElement>(BLOCK_SELECTOR));
   return candidates.filter(
@@ -161,12 +162,12 @@ export function getHighlightSpans(container: Element, id: string): HTMLElement[]
   );
 }
 
-/**
- * Finds the first occurrence of `text` inside `container` and returns a
- * Range spanning it. Text nodes are concatenated with no separator between
- * them, so a match can begin or end exactly at a paragraph boundary —
- * locateStart/locateEnd below handle that boundary case so the range gets
- * attributed to the correct paragraph on each side.
+/*
+ Finds the first occurrence of `text` inside `container` and returns a
+ Range spanning it. Text nodes are concatenated with no separator between
+ them, so a match can begin or end exactly at a paragraph boundary —
+ locateStart/locateEnd below handle that boundary case so the range gets
+ attributed to the correct paragraph on each side.
  */
 export function findTextRange(container: Element, text: string): Range | null {
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -192,13 +193,13 @@ export function findTextRange(container: Element, text: string): Range | null {
   return range;
 }
 
-/**
- * Resolves a start offset. When the offset falls exactly at the boundary
- * between two text nodes (i.e. exactly at the end of one node), prefers the
- * START of the NEXT node rather than the end of the current one — same
- * point in the document, but correctly attributes the match to the
- * paragraph the selected text actually begins in, not the paragraph that
- * happens to end at that seam.
+/*
+  Resolves a start offset. When the offset falls exactly at the boundary
+  between two text nodes (i.e. exactly at the end of one node), prefers the
+  START of the NEXT node rather than the end of the current one — same
+  point in the document, but correctly attributes the match to the
+  paragraph the selected text actually begins in, not the paragraph that
+  happens to end at that seam.
  */
 function locateStart(nodes: Text[], globalOffset: number): { node: Text; offset: number } | null {
   let remaining = globalOffset;
@@ -218,10 +219,10 @@ function locateStart(nodes: Text[], globalOffset: number): { node: Text; offset:
   return null;
 }
 
-/**
- * Resolves an end offset. Stays at the end of the current node on an exact
- * boundary — the last matched character is the last character of that
- * node, so it correctly belongs to that node's paragraph.
+/*
+  Resolves an end offset. Stays at the end of the current node on an exact
+  boundary — the last matched character is the last character of that
+  node, so it correctly belongs to that node's paragraph.
  */
 function locateEnd(nodes: Text[], globalOffset: number): { node: Text; offset: number } | null {
   let remaining = globalOffset;
