@@ -1,39 +1,32 @@
 # AO3 Annotator
 
-Private highlighting and note-taking for Archive of Our Own. Nothing leaves
-your device — see `CLAUDE.md` for the full project spec and phase plan.
+A private Chrome extension for highlighting and taking notes on fanfiction over on [Archive of Our Own (AO3)](https://archiveofourown.org). Basically margin notes, but for fic. No accounts, nothing uploaded anywhere, it all just stays in your own browser.
 
-## Setup
+## What it does
 
-```bash
-npm install
-npm run build
-```
+- Highlight any part of a fic (story text, summary, notes, even the title) in yellow, blue, green, or pink
+- Click a highlight to add a note, edit it, delete it, or change its color
+- Everything sticks around after refreshing the page
+- Lets you know if a highlight's text can't be found anymore, usually means the author edited that part
+- Keeps highlights matched to the right chapter, even on long multi-chapter fics
+- A little popup shows every fic you've annotated, click one to jump back in, or delete it if you're done
+- You can export a backup of everything and import it back later if you ever need to
 
-This bundles `src/content/content.ts` and `src/popup/popup.ts` into `dist/`.
+## How to install it
 
-For active development, run the watcher instead so changes rebuild automatically:
+Not on the Chrome Web Store, so it's a manual setup for now.
 
-```bash
-npm run watch
-```
+1. Download this repo
+2. Open a terminal in the folder and run `npm install`, then `npm run build`
+3. Go to `chrome://extensions` in Chrome, turn on Developer mode
+4. Click Load unpacked, and select the project folder
+5. That's it, it should show up in your extensions
 
-## Load into Chrome
+If you ever change the code yourself, just remember to run `npm run build` again and reload the extension for it to actually update.
 
-1. Go to `chrome://extensions`
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select this project's root folder (`ao3-annotator/`)
-5. Visit any AO3 work page, e.g. `https://archiveofourown.org/works/1`
-6. Open the DevTools console — you should see `[AO3 Annotator] Loaded on work <id>`
+## Hihihi
 
-That console log is the Phase 0 "done" checkpoint. From there, work through
-the phases in `CLAUDE.md` in order — each has its own done-when checkpoint.
-
-## Notes
-
-- Icons in `src/assets/` are placeholders — swap in real 16/48/128px PNGs
-  before shipping, Chrome will otherwise show a default puzzle-piece icon.
-- Re-run `npm run build` (or keep `npm run watch` running) any time you edit
-  a `.ts` file, then click the refresh icon on the extension card in
-  `chrome://extensions` to pick up changes.
+- Everything is saved locally in your browser, nothing gets sent anywhere
+- If you ever uninstall or clear the extension's data, your highlights are gone for good, so back up now and then if you want peace of mind
+- No way yet to browse all your highlights on one fic at a glance, you'll find them by scrolling through the text
+- Mostly tested on Chrome, should work on Edge, Brave, or Opera too!!!
