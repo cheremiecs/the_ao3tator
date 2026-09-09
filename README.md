@@ -24,7 +24,7 @@ Not on the Chrome Web Store, so it's a manual setup for now.
 
 If you ever change the code yourself, just remember to run `npm run build` again and reload the extension for it to actually update.
 
-## Hihihi
+## Whehehehehe
 
 - Everything is saved locally in your browser, nothing gets sent anywhere
 - If you ever uninstall or clear the extension's data, your highlights are gone for good, so back up now and then if you want peace of mind
