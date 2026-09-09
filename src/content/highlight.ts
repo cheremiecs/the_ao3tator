@@ -51,7 +51,7 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
 
   const spans: HTMLSpanElement[] = [];
   textNodes.forEach((textNode) => {
-    if (!textNode.data) return;
+    if (!textNode.data.trim()) return;
     const nodeRange = document.createRange();
     nodeRange.selectNode(textNode);
 
@@ -59,7 +59,7 @@ function wrapSingleRange(range: Range, id: string, color: HighlightColor): HTMLS
     span.className = HIGHLIGHT_CLASS;
     span.dataset.annotationId = id;
     span.style.backgroundColor = COLOR_HEX[color];
-    span.style.borderRadius = "2px";
+    span.style.borderRadius = "0px";
 
     try {
       nodeRange.surroundContents(span);
