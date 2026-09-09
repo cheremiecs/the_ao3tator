@@ -39,7 +39,9 @@ export async function deleteWork(workId: string): Promise<void> {
 
 export async function getAllWorks(): Promise<AnnotatedWork[]> {
   const all = await chrome.storage.local.get(null);
-  return Object.values(all) as AnnotatedWork[];
+  return Object.entries(all)
+    .filter(([key]) => key.startsWith("work:"))
+    .map(([, value]) => value as AnnotatedWork);
 }
 
 export async function updateAnnotation(
