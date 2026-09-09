@@ -11,7 +11,7 @@ import {
 const BACKUP_REMINDER_DAYS = 15;
 const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-
+const TRASH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>`;
 const THEME_KEY = "darkModeEnabled";
 
 async function setupThemeToggle(): Promise<void> {
@@ -75,7 +75,7 @@ function renderWorkItem(work: AnnotatedWork, onDeleted: () => void): HTMLDivElem
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
   deleteBtn.className = "work-delete-btn";
-  deleteBtn.textContent = "Delete";
+  deleteBtn.innerHTML = TRASH_ICON;
   deleteBtn.title = "Delete this work and all its highlights/notes";
   deleteBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
