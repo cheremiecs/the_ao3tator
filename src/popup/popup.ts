@@ -10,6 +10,29 @@ import {
 
 const BACKUP_REMINDER_DAYS = 15;
 
+const THEME_KEY = "darkModeEnabled";
+
+async function setupThemeToggle(): Promise<void> {
+  const toggleBtn = document.getElementById("theme-toggle-btn");
+  if (!toggleBtn) return;
+
+  const stored = await chrome.storage.local.get(THEME_KEY);
+  let isDark = stored[THEME_KEY] === true;
+
+  const applyTheme = () => {
+    document.body.classList.toggle("dark-mode", isDark);
+    toggleBtn.textContent = isDark ? "Light mode" : "Dark mode";
+  };
+
+  applyTheme();
+
+  toggleBtn.addEventListener("click", async () => {
+    isDark = !isDark;
+    applyTheme();
+    await chrome.storage.local.set({ [THEME_KEY]: isDark });
+  });
+}
+
 function formatLastOpened(iso: string): string {
   const date = new Date(iso);
   return date.toLocaleDateString(undefined, {
@@ -208,6 +231,7 @@ function setupImportButton(): void {
 async function init(): Promise<void> {
   setupExportButton();
   setupImportButton();
+  await setupThemeToggle();
   await checkBackupReminder();
   await renderList();
 }

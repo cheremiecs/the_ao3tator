@@ -129,3 +129,67 @@ h1 {
   font-size: 13px;
   color: #666;
 }
+
+body.dark-mode {
+  background: #1e1e1e;
+  color: #eee;
+}
+
+body.dark-mode .work-item {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+body.dark-mode .work-item:hover {
+  background: #333;
+}
+
+body.dark-mode .work-title {
+  color: #f0f0f0;
+}
+
+body.dark-mode .work-author {
+  color: #bbb;
+}
+
+body.dark-mode .work-last-opened {
+  color: #999;
+}
+
+body.dark-mode .backup-actions button {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #eee;
+}
+
+body.dark-mode .backup-actions button:hover {
+  background: #333;
+}
+
+body.dark-mode #backup-reminder {
+  background: #3a3320;
+  border-color: #6b5a2a;
+  color: #e0d5a8;
+}
+
+body.dark-mode .empty-state {
+  color: #aaa;
+}
+
+#theme-toggle-btn {
+  width: 100%;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+body.dark-mode #theme-toggle-btn {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #eee;
+}
