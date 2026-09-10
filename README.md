@@ -16,17 +16,14 @@ A private Chrome extension for highlighting and taking notes on fanfiction over 
 
 Not on the Chrome Web Store, so it's a manual setup for now.
 
-1. Download this repo
-2. Open a terminal in the folder and run `npm install`, then `npm run build`
-3. Go to `chrome://extensions` in Chrome, turn on Developer mode
-4. Click Load unpacked, and select the project folder
-5. That's it, it should show up in your extensions
+1. Unzip the file somewhere on your computer.
+2. Open Chrome and go to `chrome://extensions`.
+3. Turn on **Developer mode** using the toggle in the top right.
+4. Click **Load unpacked**.
+5. Select the unzipped folder.
 
-If you ever change the code yourself, just remember to run `npm run build` again and reload the extension for it to actually update.
-
-## Whehehehehe
+That's it, the extension should now show up in your toolbar.
 
 - Everything is saved locally in your browser, nothing gets sent anywhere
 - If you ever uninstall or clear the extension's data, your highlights are gone for good, so back up now and then if you want peace of mind
-- No way yet to browse all your highlights on one fic at a glance, you'll find them by scrolling through the text
 - Mostly tested on Chrome, should work on Edge, Brave, or Opera too!!!
