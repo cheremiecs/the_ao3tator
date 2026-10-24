@@ -5,6 +5,53 @@ const POPOVER_ID = "ao3-annotator-popover";
 
 let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 let escHandler: ((e: KeyboardEvent) => void) | null = null;
+let darkMode = false;
+
+const LIGHT = {
+  bg: "#fff",
+  border: "#ccc",
+  text: "#222",
+  handleText: "#aaa",
+  handleLine: "#eee",
+  swatchRing: "rgba(0,0,0,0.15)",
+  swatchSelected: "2px solid #333",
+  inputBg: "#fff",
+  inputBorder: "#ddd",
+  btnBg: "#f5f5f5",
+  btnBorder: "#ccc",
+  btnText: "#333",
+  dangerBg: "#fff5f5",
+  dangerBorder: "#e0a0a0",
+  dangerText: "#b03030",
+  shadow: "0 2px 8px rgba(0,0,0,0.15)"
+};
+
+const DARK: typeof LIGHT = {
+  bg: "#1e1e1e",
+  border: "#444",
+  text: "#eee",
+  handleText: "#888",
+  handleLine: "#333",
+  swatchRing: "rgba(255,255,255,0.3)",
+  swatchSelected: "2px solid #eee",
+  inputBg: "#2a2a2a",
+  inputBorder: "#555",
+  btnBg: "#2a2a2a",
+  btnBorder: "#555",
+  btnText: "#eee",
+  dangerBg: "transparent",
+  dangerBorder: "#b03030",
+  dangerText: "#e07070",
+  shadow: "0 2px 8px rgba(0,0,0,0.6)"
+};
+
+export function setPopoverDarkMode(isDark: boolean): void {
+  darkMode = isDark;
+}
+
+function palette(): typeof LIGHT {
+  return darkMode ? DARK : LIGHT;
+}
 
 function clampPosition(x: number, y: number, width: number, height: number) {
   const clampedX = Math.min(x, window.innerWidth - width - 8);
@@ -13,31 +60,34 @@ function clampPosition(x: number, y: number, width: number, height: number) {
 }
 
 function basePopoverStyle(el: HTMLElement, left: number, top: number): void {
+  const c = palette();
   el.id = POPOVER_ID;
   el.style.position = "fixed";
   el.style.left = `${left}px`;
   el.style.top = `${top}px`;
   el.style.zIndex = "999999";
-  el.style.background = "#fff";
-  el.style.border = "1px solid #ccc";
+  el.style.background = c.bg;
+  el.style.color = c.text;
+  el.style.border = `1px solid ${c.border}`;
   el.style.borderRadius = "8px";
-  el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+  el.style.boxShadow = c.shadow;
   el.style.boxSizing = "border-box";
 }
 
-//Small grip bar at the top of a popover that lets the user drag it anywhere. 
+/** Small grip bar at the top of a popover that lets the user drag it anywhere. */
 function createDragHandle(popover: HTMLElement): HTMLElement {
+  const c = palette();
   const handle = document.createElement("div");
   handle.textContent = "⠿⠿⠿";
   handle.style.textAlign = "center";
   handle.style.fontSize = "10px";
   handle.style.letterSpacing = "2px";
-  handle.style.color = "#aaa";
+  handle.style.color = c.handleText;
   handle.style.cursor = "grab";
   handle.style.userSelect = "none";
   handle.style.padding = "2px 0 4px";
   handle.style.marginBottom = "2px";
-  handle.style.borderBottom = "1px solid #eee";
+  handle.style.borderBottom = `1px solid ${c.handleLine}`;
 
   let dragging = false;
   let startX = 0;
@@ -100,6 +150,7 @@ export function showColorPopover(
   onSelect: (color: HighlightColor) => void
 ): void {
   removeColorPopover();
+  const c = palette();
 
   const popover = document.createElement("div");
   const { left, top } = clampPosition(x, y, 130, 50);
@@ -121,7 +172,7 @@ export function showColorPopover(
     swatch.style.width = "18px";
     swatch.style.height = "18px";
     swatch.style.borderRadius = "50%";
-    swatch.style.border = "1px solid rgba(0,0,0,0.15)";
+    swatch.style.border = `1px solid ${c.swatchRing}`;
     swatch.style.background = COLOR_HEX[color];
     swatch.style.cursor = "pointer";
     swatch.style.padding = "0";
@@ -147,7 +198,6 @@ export interface NotePopoverCallbacks {
   onColorChange: (color: HighlightColor) => void;
 }
 
-// Widened so the three-button row fits on one line without overflowing.
 const NOTE_POPOVER_WIDTH = 300;
 
 export function showNotePopover(
@@ -158,6 +208,7 @@ export function showNotePopover(
   callbacks: NotePopoverCallbacks
 ): void {
   removeColorPopover();
+  const c = palette();
 
   const popover = document.createElement("div");
   const { left, top } = clampPosition(x, y, NOTE_POPOVER_WIDTH, 210);
@@ -183,7 +234,7 @@ export function showNotePopover(
     swatch.style.height = "18px";
     swatch.style.borderRadius = "50%";
     swatch.style.border =
-      color === currentColor ? "2px solid #333" : "1px solid rgba(0,0,0,0.15)";
+      color === currentColor ? c.swatchSelected : `1px solid ${c.swatchRing}`;
     swatch.style.background = COLOR_HEX[color];
     swatch.style.cursor = "pointer";
     swatch.style.padding = "0";
@@ -205,7 +256,9 @@ export function showNotePopover(
   textarea.style.boxSizing = "border-box";
   textarea.style.fontSize = "13px";
   textarea.style.padding = "6px";
-  textarea.style.border = "1px solid #ddd";
+  textarea.style.background = c.inputBg;
+  textarea.style.color = c.text;
+  textarea.style.border = `1px solid ${c.inputBorder}`;
   textarea.style.borderRadius = "6px";
   textarea.style.resize = "none";
   textarea.style.marginBottom = "6px";
@@ -214,7 +267,7 @@ export function showNotePopover(
 
   const buttonRow = document.createElement("div");
   buttonRow.style.display = "flex";
-  buttonRow.style.flexWrap = "wrap"; //wrapping to avoid overflow on smaller screens
+  buttonRow.style.flexWrap = "wrap";
   buttonRow.style.justifyContent = "space-between";
   buttonRow.style.gap = "6px";
   buttonRow.style.width = "100%";
@@ -227,10 +280,10 @@ export function showNotePopover(
     btn.style.fontSize = "11px";
     btn.style.padding = "8px 12px";
     btn.style.lineHeight = "1.2";
-    btn.style.border = "1px solid " + (danger ? "#e0a0a0" : "#ccc");
+    btn.style.border = `1px solid ${danger ? c.dangerBorder : c.btnBorder}`;
     btn.style.borderRadius = "6px";
-    btn.style.background = danger ? "#fff5f5" : "#f5f5f5";
-    btn.style.color = danger ? "#b03030" : "#333";
+    btn.style.background = danger ? c.dangerBg : c.btnBg;
+    btn.style.color = danger ? c.dangerText : c.btnText;
     btn.style.cursor = "pointer";
     btn.style.whiteSpace = "nowrap";
     btn.style.flex = "0 0 auto";
@@ -289,19 +342,12 @@ export function removeColorPopover(): void {
   }
 }
 
-//Missing-highlights banner 
+// ---- Missing-highlights banner ----
 
 const BANNER_ID = "ao3-annotator-missing-banner";
 
-/**
- * Shows a small dismissible banner at the top of the page when one or more
- * saved highlights couldn't be relocated on this page load (their exact
- * stored text is no longer found — likely because the author edited the
- * fic). This does not attempt to guess where the highlight went; it just
- * informs the reader plainly. Shown at most once per page load.
- */
 export function showMissingHighlightsBanner(count: number): void {
-  if (document.getElementById(BANNER_ID)) return; // already shown this load
+  if (document.getElementById(BANNER_ID)) return;
 
   const banner = document.createElement("div");
   banner.id = BANNER_ID;
@@ -328,7 +374,6 @@ export function showMissingHighlightsBanner(count: number): void {
       ? "1 of your highlights couldn't be found — this fic may have been updated since you last read it."
       : `${count} of your highlights couldn't be found — this fic may have been updated since you last read it.`;
 
-  // Auto-dismiss after 5 seconds; cleared if the user dismisses manually first.
   const autoDismissTimer = window.setTimeout(() => {
     banner.remove();
   }, 5000);
@@ -353,5 +398,3 @@ export function showMissingHighlightsBanner(count: number): void {
   banner.appendChild(dismissBtn);
   document.body.appendChild(banner);
 }
-
-//hehe

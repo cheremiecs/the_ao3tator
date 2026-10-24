@@ -2,6 +2,7 @@ import { getWork, saveWork, updateAnnotation, deleteAnnotation } from "./storage
 import { createAnnotation, createWorkShell } from "./annotation";
 import {
   findTextRange,
+  getRangeStartOffset,
   wrapRangeAsHighlight,
   unwrapHighlight,
   getHighlightSpans,
@@ -12,10 +13,12 @@ import {
   showColorPopover,
   showNotePopover,
   removeColorPopover,
-  showMissingHighlightsBanner
+  showMissingHighlightsBanner,
+  setPopoverDarkMode
 } from "./popover";
 
 const STORY_CONTAINER_SELECTOR = "#main";
+const THEME_KEY = "darkModeEnabled";
 
 function getWorkId(): string | null {
   const match = window.location.pathname.match(/\/works\/(\d+)/);
@@ -27,54 +30,44 @@ function getCurrentChapterId(): string | null {
   return match ? match[1] : null;
 }
 
-
 function getStoryContainer(): Element | null {
   return document.querySelector(STORY_CONTAINER_SELECTOR);
 }
 
-//re-applies saved highlights when a page loads
+async function syncPopoverTheme(): Promise<void> {
+  const stored = await chrome.storage.local.get(THEME_KEY);
+  setPopoverDarkMode(stored[THEME_KEY] === true);
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && THEME_KEY in changes) {
+      setPopoverDarkMode(changes[THEME_KEY].newValue === true);
+    }
+  });
+}
+
+// Re-applies saved highlights when a page loads
 async function restoreHighlights(workId: string, container: Element): Promise<void> {
   const work = await getWork(workId);
   if (!work) return;
 
   const currentChapterId = getCurrentChapterId();
-  let missingCount = 0; //track how many highlights end up missing
+  let missingCount = 0;
 
-//if highlight is clearly tagged as belonging to some other chapter, don't restore it, move on to the next saved highlight
-  for (const annotation of work.annotations) { 
+  for (const annotation of work.annotations) {
     const belongsToOtherChapter =
-      annotation.chapterId !== null && 
-      currentChapterId !== null && 
-      annotation.chapterId !== currentChapterId; 
+      annotation.chapterId !== null &&
+      currentChapterId !== null &&
+      annotation.chapterId !== currentChapterId;
     if (belongsToOtherChapter) continue;
 
-    const range = findTextRange(container, annotation.selectedText);
+    const range = findTextRange(container, annotation.selectedText, annotation.charOffset);
     if (!range) {
-      /*
-      console.warn(
-        `[AO3 Annotator] Could not restore highlight ${annotation.id} — text not found.`
-      ); 
-      */
       if (annotation.chapterId !== null) {
         missingCount++;
       }
       continue;
     }
 
-    const foundText = range.toString();
-    if (foundText !== annotation.selectedText) {
-      /*
-      console.error(
-        `[AO3 Annotator] MISMATCH for ${annotation.id}:`,
-        "\n  expected:", JSON.stringify(annotation.selectedText),
-        "\n  found:   ", JSON.stringify(foundText)
-      );
-      */
-    } else {
-      /*
-      console.log(`[AO3 Annotator] OK ${annotation.id}:`, JSON.stringify(foundText));
-      */
-    } 
     wrapRangeAsHighlight(range, annotation.id, annotation.color, container);
   }
 
@@ -83,7 +76,6 @@ async function restoreHighlights(workId: string, container: Element): Promise<vo
   }
 }
 
-//finishes a text selection, shows the color popup if it's valid, builds the highlight, paints it on the page, saves it to storage, and cleans up the selection
 function handleSelection(workId: string, container: Element): void {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
@@ -92,18 +84,15 @@ function handleSelection(workId: string, container: Element): void {
   const selectedText = range.toString().trim();
   if (!selectedText) return;
 
-  if (!container.contains(range.commonAncestorContainer)) return; 
+  if (!container.contains(range.commonAncestorContainer)) return;
+
+  const charOffset = getRangeStartOffset(container, range);
 
   const rect = range.getBoundingClientRect();
-  showColorPopover(rect.left, rect.bottom + 6, 
-    async (color) => {
+  showColorPopover(rect.left, rect.bottom + 6, async (color) => {
     const rangeCopy = range.cloneRange();
-    //console.log(`[AO3 Annotator] About to save:`, JSON.stringify(selectedText));
-    const annotation = createAnnotation(selectedText, color);
+    const annotation = createAnnotation(selectedText, color, charOffset);
     wrapRangeAsHighlight(rangeCopy, annotation.id, annotation.color, container);
-
-    //const actuallyWrapped = spans.map((s) => s.textContent).join("");
-    //console.log(`[AO3 Annotator] Actually wrapped:`, JSON.stringify(actuallyWrapped));
 
     const existing = (await getWork(workId)) ?? createWorkShell(workId);
     existing.annotations.push(annotation);
@@ -111,11 +100,9 @@ function handleSelection(workId: string, container: Element): void {
     await saveWork(existing);
 
     selection.removeAllRanges();
-    //console.log(`[AO3 Annotator] Saved highlight ${annotation.id}`);
   });
 }
 
-//opens the note popover/ save a note, delete a note, delete the whole highlight, or changing color
 function handleHighlightClick(workId: string, span: HTMLElement, container: Element): void {
   const annotationId = span.dataset.annotationId;
   if (!annotationId) return;
@@ -128,16 +115,13 @@ function handleHighlightClick(workId: string, span: HTMLElement, container: Elem
     showNotePopover(rect.left, rect.bottom + 6, annotation.note, annotation.color, {
       onSave: async (note) => {
         await updateAnnotation(workId, annotationId, { note });
-        //console.log(`[AO3 Annotator] Updated note on ${annotationId}`);
       },
       onDeleteNote: async () => {
         await updateAnnotation(workId, annotationId, { note: "" });
-        //console.log(`[AO3 Annotator] Deleted note on ${annotationId}`);
       },
       onDeleteHighlight: async () => {
         await deleteAnnotation(workId, annotationId);
         unwrapHighlight(container, annotationId);
-        //console.log(`[AO3 Annotator] Deleted highlight ${annotationId}`);
       },
       onColorChange: async (color) => {
         const spans = getHighlightSpans(container, annotationId);
@@ -145,7 +129,6 @@ function handleHighlightClick(workId: string, span: HTMLElement, container: Elem
           s.style.backgroundColor = COLOR_HEX[color];
         });
         await updateAnnotation(workId, annotationId, { color });
-        //console.log(`[AO3 Annotator] Recolored highlight ${annotationId} to ${color}`);
       }
     });
   });
@@ -161,14 +144,13 @@ async function init(): Promise<void> {
     return;
   }
 
-  console.log(`[AO3 Annotator] Loaded on work ${workId}`);
-
   const existingWork = await getWork(workId);
   if (existingWork) {
     existingWork.lastOpened = new Date().toISOString();
     await saveWork(existingWork);
   }
 
+  await syncPopoverTheme();
   await restoreHighlights(workId, container);
 
   document.addEventListener("mousedown", (e) => {
