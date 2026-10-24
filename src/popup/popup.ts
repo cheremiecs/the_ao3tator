@@ -9,10 +9,15 @@ import {
 } from "../content/storage";
 
 const BACKUP_REMINDER_DAYS = 15;
-const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
-const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-const TRASH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>`;
+const SNOOZE_DAYS = 3;
+const SNOOZE_KEY = "backupReminderSnoozedUntil";
 const THEME_KEY = "darkModeEnabled";
+
+const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
+
+const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
+const TRASH_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>`;
 
 async function setupThemeToggle(): Promise<void> {
   const toggleBtn = document.getElementById("theme-toggle-btn");
@@ -132,6 +137,12 @@ async function checkBackupReminder(): Promise<void> {
     overdue = daysSince >= BACKUP_REMINDER_DAYS;
   }
 
+  const stored = await chrome.storage.local.get(SNOOZE_KEY);
+  const snoozedUntil = stored[SNOOZE_KEY] as number | undefined;
+  if (snoozedUntil && Date.now() < snoozedUntil) {
+    overdue = false;
+  }
+
   if (!overdue) {
     reminder.classList.remove("visible");
     reminder.innerHTML = "";
@@ -139,11 +150,15 @@ async function checkBackupReminder(): Promise<void> {
   }
 
   reminder.innerHTML = "";
+
   const text = document.createElement("p");
   text.style.margin = "0";
   text.textContent = lastBackup
     ? `It's been over ${BACKUP_REMINDER_DAYS} days since your last backup.`
     : "You haven't backed up your highlights yet.";
+
+  const actions = document.createElement("div");
+  actions.className = "reminder-actions";
 
   const exportNowBtn = document.createElement("button");
   exportNowBtn.type = "button";
@@ -152,8 +167,21 @@ async function checkBackupReminder(): Promise<void> {
     document.getElementById("export-btn")?.click();
   });
 
+  const laterBtn = document.createElement("button");
+  laterBtn.type = "button";
+  laterBtn.textContent = "Later";
+  laterBtn.title = `Remind me again in ${SNOOZE_DAYS} days`;
+  laterBtn.addEventListener("click", async () => {
+    const until = Date.now() + SNOOZE_DAYS * 24 * 60 * 60 * 1000;
+    await chrome.storage.local.set({ [SNOOZE_KEY]: until });
+    reminder.classList.remove("visible");
+    reminder.innerHTML = "";
+  });
+
+  actions.appendChild(exportNowBtn);
+  actions.appendChild(laterBtn);
   reminder.appendChild(text);
-  reminder.appendChild(exportNowBtn);
+  reminder.appendChild(actions);
   reminder.classList.add("visible");
 }
 

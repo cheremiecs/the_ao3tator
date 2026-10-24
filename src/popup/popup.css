@@ -9,6 +9,36 @@ h1 {
   margin: 0 0 12px;
 }
 
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.header-row h1 {
+  margin: 0;
+}
+
+#theme-toggle-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#theme-toggle-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .backup-actions {
   display: flex;
   gap: 8px;
@@ -45,6 +75,12 @@ h1 {
   display: block;
 }
 
+.reminder-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 #backup-reminder button {
   font-size: 11px;
   padding: 3px 8px;
@@ -53,7 +89,6 @@ h1 {
   background: #fff;
   color: #5c4a1a;
   cursor: pointer;
-  margin-top: 4px;
 }
 
 #work-list {
@@ -133,6 +168,7 @@ h1 {
 .work-delete-btn:hover {
   background: rgba(224, 160, 160, 0.15);
 }
+
 .empty-state {
   font-size: 13px;
   color: #666;
@@ -140,6 +176,12 @@ h1 {
 
 body.dark-mode {
   background: #1e1e1e;
+  color: #eee;
+}
+
+body.dark-mode #theme-toggle-btn {
+  background: #2a2a2a;
+  border-color: #444;
   color: #eee;
 }
 
@@ -182,40 +224,4 @@ body.dark-mode #backup-reminder {
 
 body.dark-mode .empty-state {
   color: #aaa;
-}
-
-.header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.header-row h1 {
-  margin: 0;
-}
-
-#theme-toggle-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #f5f5f5;
-  color: #333;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#theme-toggle-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-body.dark-mode #theme-toggle-btn {
-  background: #2a2a2a;
-  border-color: #444;
-  color: #eee;
 }
